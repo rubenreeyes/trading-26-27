@@ -33,10 +33,10 @@ var HOJAS = {
     formulas: ['semana', 'mes'],   // fórmulas: no se escriben nunca
     cols: [
       ['fecha', 'Fecha', 'A'], ['dia', 'Día', 'B'], ['semana', 'Semana', 'C'],
-      ['rev730', 'Rev 7:30', 'D'], ['ny1530', 'NY 15:30', 'E'], ['formacion', 'Formación', 'F'],
-      ['planificacion', 'Planif. domingo', 'G'], ['reglas', 'Reglas cumplidas', 'H'],
-      ['reglaIncumplida', 'Regla incumplida', 'I'], ['freno', 'Freno', 'J'],
-      ['fase', 'Fase scalping', 'K'], ['notas', 'Notas', 'L'], ['mes', 'Mes', 'M']
+      ['rev730', 'Rev 7:30 (x)', 'D'], ['ny1530', 'NY 15:30 (x)', 'E'], ['formacion', 'Formación (x)', 'F'],
+      ['planificacion', 'Planif. domingo (x)', 'G'], ['reglas', 'Reglas cumplidas (sí/no)', 'H'],
+      ['reglaIncumplida', 'Regla incumplida', 'I'], ['freno', 'Freno (diario/semanal)', 'J'],
+      ['fase', 'Fase scalping (0-4)', 'K'], ['notas', 'Notas', 'L'], ['mes', 'Mes', 'M']
     ]
   },
   operaciones: {
@@ -45,14 +45,14 @@ var HOJAS = {
     preparadas: 401,               // última fila con fórmulas ya escritas
     claveLibre: 'fechaApertura',   // fila libre = la primera con esta columna (B) vacía
     cols: [
-      ['id', 'ID', 'A'], ['fechaApertura', 'Fecha apertura', 'B'], ['tipo', 'Tipo', 'C'],
-      ['activo', 'Activo', 'D'], ['direccion', 'Dirección', 'E'], ['cuentas', 'Cuentas', 'F'],
+      ['id', 'ID', 'A'], ['fechaApertura', 'Fecha apertura', 'B'], ['tipo', 'Tipo (swing/scalping)', 'C'],
+      ['activo', 'Activo', 'D'], ['direccion', 'Dirección (largo/corto)', 'E'], ['cuentas', 'Cuentas', 'F'],
       ['entrada', 'Entrada', 'G'], ['stop', 'Stop', 'H'], ['tp1', 'TP1', 'I'],
       ['ratio', 'Ratio TP1', 'J'], ['riesgo', 'Riesgo %', 'K'],
       ['c1', 'C1 fin de ciclo', 'L'], ['c2', 'C2 zona repetida', 'M'], ['c3', 'C3 gatillo', 'N'],
       ['c4', 'C4 contexto', 'O'], ['c5', 'C5 ratio ≥1:3', 'P'], ['checklist', 'Checklist OK', 'Q'],
-      ['gestion', 'Gestión', 'R'], ['fechaCierre', 'Fecha cierre', 'S'],
-      ['resultadoR', 'Resultado (R)', 'T'], ['dentroReglas', 'Dentro de reglas', 'U'],
+      ['gestion', 'Gestión (parciales, BE, cierres)', 'R'], ['fechaCierre', 'Fecha cierre', 'S'],
+      ['resultadoR', 'Resultado (R)', 'T'], ['dentroReglas', 'Dentro de reglas (sí/no)', 'U'],
       ['motivo', 'Motivo si no', 'V'], ['aprendizaje', 'Aprendizaje', 'W'],
       ['semana', 'Semana', 'X'], ['mes', 'Mes', 'Y']
     ]
@@ -63,7 +63,7 @@ var HOJAS = {
     preparadas: 401,
     claveLibre: 'fecha',
     cols: [
-      ['fecha', 'Fecha', 'A'], ['semana', 'Semana', 'B'], ['activo', 'Activo', 'C'],
+      ['fecha', 'Fecha (domingo)', 'A'], ['semana', 'Semana', 'B'], ['activo', 'Activo', 'C'],
       ['direccion', 'Dirección', 'D'], ['zona', 'Zona de entrada', 'E'], ['stop', 'Stop', 'F'],
       ['tp1', 'TP1', 'G'], ['ratio', 'Ratio', 'H'], ['estado', 'Estado', 'I'], ['notas', 'Notas', 'J']
     ]
@@ -73,10 +73,10 @@ var HOJAS = {
     formulas: [],
     cols: [
       ['cuenta', 'Cuenta', 'A'], ['firma', 'Firma', 'B'], ['producto', 'Producto', 'C'],
-      ['balance', 'Balance inicial ($)', 'D'], ['fase', 'Fase', 'E'],
+      ['balance', 'Balance inicial ($)', 'D'], ['fase', 'Fase (challenge/earning)', 'E'],
       ['perdidaDiaria', 'Pérdida diaria ($)', 'F'], ['perdidaMaxima', 'Pérdida máxima ($)', 'G'],
       ['objetivo', 'Objetivo ($)', 'H'], ['fechaLimite', 'Fecha límite', 'I'],
-      ['estado', 'Estado', 'J'], ['uso', 'Uso', 'K'], ['notas', 'Notas', 'L']
+      ['estado', 'Estado', 'J'], ['uso', 'Uso (swing/scalping)', 'K'], ['notas', 'Notas', 'L']
     ]
   },
   estado: {
@@ -85,9 +85,9 @@ var HOJAS = {
     preparadas: 301,
     claveLibre: 'fecha',
     cols: [
-      ['fecha', 'Fecha', 'A'], ['semana', 'Semana', 'B'], ['cuenta', 'Cuenta', 'C'],
+      ['fecha', 'Fecha (domingo)', 'A'], ['semana', 'Semana', 'B'], ['cuenta', 'Cuenta', 'C'],
       ['balance', 'Balance', 'D'], ['drawdown', 'Drawdown usado (%)', 'E'],
-      ['diasRentables', 'Días rentables', 'F'], ['proximoRetiro', 'Próximo retiro (fecha)', 'G'],
+      ['diasRentables', 'Días rentables', 'F'], ['proximoRetiro', 'Próximo retiro', 'G'],
       ['progreso', 'Progreso objetivo (%)', 'H'], ['notas', 'Notas', 'I']
     ]
   },
@@ -98,8 +98,8 @@ var HOJAS = {
     tope: true,
     claveLibre: 'fecha',
     cols: [
-      ['fecha', 'Fecha del caso', 'A'], ['estrategia', 'Estrategia', 'B'], ['activo', 'Activo', 'C'],
-      ['direccion', 'Dirección', 'D'], ['checklist', 'Checklist OK', 'E'],
+      ['fecha', 'Fecha del caso', 'A'], ['estrategia', 'Estrategia (swing/scalping)', 'B'], ['activo', 'Activo', 'C'],
+      ['direccion', 'Dirección', 'D'], ['checklist', 'Checklist OK (sí/no)', 'E'],
       ['resultadoR', 'Resultado (R)', 'F'], ['notas', 'Notas', 'G']
     ]
   }
@@ -122,6 +122,10 @@ function definido(v) { return v !== undefined && v !== null; }
 function texto(v) { return String(v == null ? '' : v).trim(); }
 function esX(v) { return texto(v).toLowerCase() === 'x'; }
 function esFecha(s) { return /^\d{4}-\d{2}-\d{2}$/.test(s); }
+
+// Quita el paréntesis final de una cabecera: "Rev 7:30 (x)" → "rev 7:30".
+// Así da igual que la hoja lleve o no la chuleta de valores permitidos.
+function base(s) { return normaliza(s).replace(/\s*\([^()]*\)\s*$/, ''); }
 
 function normaliza(s) {
   return String(s == null ? '' : s).toLowerCase()
@@ -166,9 +170,11 @@ function hojaDe(def) {
 function columnas(sh, def) {
   var ancho = Math.max(sh.getLastColumn(), def.cols.length);
   var cab = ancho > 0 ? sh.getRange(1, 1, 1, ancho).getValues()[0].map(normaliza) : [];
+  var base1 = cab.map(base);
   var out = {}, usadas = {}, pendientes = [];
   def.cols.forEach(function (c) {
     var i = cab.indexOf(normaliza(c[1]));
+    if (i < 0 || usadas[i]) i = base1.indexOf(base(c[1]));   // igual salvo el paréntesis
     if (i >= 0 && !usadas[i]) { out[c[0]] = i + 1; usadas[i] = true; } else pendientes.push(c);
   });
   pendientes.forEach(function (c) {
@@ -441,7 +447,7 @@ function comprobarHojas() {
       var esperada = letraACol(c[2]);
       var real = mapa[c[0]];
       var textoReal = texto(cab[esperada - 1]);
-      if (normaliza(textoReal) !== normaliza(c[1])) {
+      if (base(textoReal) !== base(c[1])) {
         fallos.push('   columna ' + c[2] + ': se esperaba «' + c[1] + '» y hay «' + textoReal + '»' +
           (real !== esperada ? ' → se usará la columna ' + colALetra(real) : ' → se usará igualmente la ' + c[2]));
       }
@@ -466,8 +472,10 @@ function comprobarHojas() {
     : '✗ FALTA la propiedad del script TOKEN (Configuración del proyecto → Propiedades del script).');
   lineas.push(problemas ? '\n' + problemas + ' diferencia(s). Revísalas arriba.' : '\nTodo correcto.');
 
+  // Ojo: nada de SpreadsheetApp.getUi().alert() aquí. Un aviso emergente deja la
+  // ejecución esperando a que alguien lo cierre y acaba en "Exceeded maximum
+  // execution time". El informe sale en el registro de ejecución.
   var informe = lineas.join('\n');
   Logger.log(informe);
-  try { SpreadsheetApp.getUi().alert(informe); } catch (err) { /* sin interfaz: basta el registro */ }
   return informe;
 }

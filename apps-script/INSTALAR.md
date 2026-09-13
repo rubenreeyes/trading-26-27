@@ -34,12 +34,16 @@ las filas preparadas, copia antes las fórmulas de la fila anterior).
    y pulsa **Ejecutar**. La primera vez pedirá autorización: elige tu cuenta, y si
    sale "Google no ha verificado esta aplicación", **Configuración avanzada → Ir a
    Trading 26/27 (no seguro) → Permitir**. Es tu propio script sobre tu propia hoja.
-2. Sale un aviso (y el mismo texto en **Registro de ejecución**) con una línea por
-   hoja. Todo con `✓` es correcto. Cada `✗` dice qué cabecera esperaba, cuál hay y
-   en qué columna va a buscarla.
-3. Si una cabecera de la hoja está escrita de otra forma, el script la localiza
-   igual por parecido; solo hay que tocar algo si dice que **falta** una hoja o si
-   la columna que va a usar no es la correcta.
+2. El informe sale en el **Registro de ejecución**, abajo: una línea por hoja.
+   Todo con `✓` es correcto. Cada `✗` dice qué cabecera esperaba, cuál hay y en
+   qué columna va a buscarla. No abre ninguna ventana emergente a propósito: un
+   aviso deja la ejecución esperando a que lo cierres y acaba en "Exceeded
+   maximum execution time".
+3. Si una cabecera está escrita de otra forma, el script la localiza igual por
+   parecido, y el paréntesis con los valores permitidos (`Rev 7:30 (x)`,
+   `Tipo (swing/scalping)`…) no cuenta para la comparación. Solo hay que tocar
+   algo si dice que **falta** una hoja o si la columna que va a usar no es la
+   correcta.
 
 ## 4. Publicar como aplicación web
 
