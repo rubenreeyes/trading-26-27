@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trading 26/27</title>
+<meta name="description" content="Rutina y diario de trading del curso 2026-2027">
+<meta name="theme-color" content="#2563eb">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Trading 26/27">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<style>
+:root{
+  --bg:#f3f5f9; --card:#ffffff; --text:#141a24; --muted:#5c6980; --line:#dee3ec;
+  --accent:#2563eb; --accent-ink:#ffffff; --accent-soft:#dbe7fe;
+  --ok:#15803d; --ok-soft:#dcfce7;
+  --warn:#b45309; --warn-soft:#fef3c7; --danger:#dc2626; --danger-soft:#fee2e2;
+  --shadow:0 1px 2px rgba(0,0,0,.06); --radius:14px; --nav-h:64px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0e1219; --card:#181e29; --text:#e7ecf5; --muted:#9aa7bd; --line:#2a3444;
+    --accent:#60a5fa; --accent-ink:#0a1a33; --accent-soft:#1c2f4d;
+    --ok:#4ade80; --ok-soft:#12351f;
+    --warn:#fbbf24; --warn-soft:#3a2c0a; --danger:#f87171; --danger-soft:#431515;
+    --shadow:none;
+    color-scheme: dark;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 8px);overflow-x:hidden}
+header.top{position:sticky;top:0;z-index:5;background:var(--bg);
+  padding:calc(10px + env(safe-area-inset-top)) 16px 8px;display:flex;justify-content:space-between;
+  align-items:center;gap:8px;border-bottom:1px solid var(--line)}
+header.top h1{font-size:20px;margin:0}
+.pill{font-size:13px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--accent-soft);color:var(--text);white-space:nowrap}
+main{padding:12px 14px 24px;max-width:640px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:12px;box-shadow:var(--shadow)}
+.card h2{font-size:17px;margin:0 0 8px}
+.card h3{font-size:13px;margin:14px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.card h3:first-child{margin-top:0}
+.card p{margin:6px 0}
+.muted{color:var(--muted)} .small{font-size:14px} .b{font-weight:700}
+.row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+button,.btn{font:inherit;font-weight:600;border:0;border-radius:12px;padding:10px 16px;min-height:44px;
+  background:var(--accent);color:var(--accent-ink);cursor:pointer;text-decoration:none;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;-webkit-tap-highlight-color:transparent}
+.btn.sec{background:var(--accent-soft);color:var(--text)}
+.btn.ghost{background:transparent;color:var(--accent);padding:8px 10px;min-height:40px}
+.btn.danger{background:var(--danger);color:#fff}
+.btn.block{width:100%}
+.btn:active{transform:scale(.98)}
+.btn[disabled]{opacity:.4}
+nav.tabbar{position:fixed;bottom:0;left:0;right:0;height:calc(var(--nav-h) + env(safe-area-inset-bottom));
+  padding-bottom:env(safe-area-inset-bottom);display:flex;background:var(--card);border-top:1px solid var(--line);z-index:10}
+nav.tabbar button{flex:1;background:none;color:var(--muted);border-radius:0;flex-direction:column;gap:2px;font-size:11px;padding:6px 2px;min-height:0}
+nav.tabbar button .ic{font-size:21px;line-height:1}
+nav.tabbar button.on{color:var(--accent)}
+.tag{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--accent-soft);vertical-align:middle;margin-left:6px;white-space:nowrap}
+.tag.warn{background:var(--warn-soft)} .tag.bad{background:var(--danger-soft)} .tag.ok{background:var(--ok-soft)}
+.tag.plain{background:var(--line)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -14px;padding:0 14px}
+input[type=text],input[type=url],input[type=number],input[type=date],select,textarea{font:inherit;padding:10px 12px;
+  border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--text);min-height:44px;width:100%}
+textarea{min-height:88px;line-height:1.4;resize:vertical}
+.field{margin-top:10px} .field label{display:block;font-size:13px;color:var(--muted);font-weight:600;margin-bottom:4px}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.f3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.f2 .field,.f3 .field{margin-top:10px;min-width:0}
+.msg{margin-top:10px;font-size:14px;padding:8px 10px;border-radius:10px;background:var(--accent-soft)}
+.msg.err{background:var(--danger-soft)} .msg.ok{background:var(--ok-soft)}
+.notice{background:var(--warn-soft);border-radius:12px;padding:10px 12px;font-size:14px;margin-bottom:12px}
+.confirm{background:var(--warn-soft);border-radius:12px;padding:12px;margin-top:10px}
+.confirm .row{margin-top:8px}
+details summary{cursor:pointer;font-weight:600;padding:6px 0}
+details[open] summary{margin-bottom:4px}
+ul.plain{margin:6px 0;padding-left:20px} ul.plain li{margin:4px 0}
+ol.plain{margin:6px 0;padding-left:22px} ol.plain li{margin:4px 0}
+.datebar{display:flex;align-items:center;gap:8px}
+.datebar .btn{padding:6px 12px;min-height:38px;flex:none}
+.datebar .d{flex:1;min-width:0}
+.hoy-big{font-size:19px;font-weight:700;margin:2px 0}
+.hoy-sub{color:var(--muted)}
+button.sync{background:none;color:var(--muted);padding:8px 0 0;min-height:0;border-radius:0;font-weight:500;justify-content:flex-start;font-size:13px;width:100%;text-align:left;gap:8px;flex-wrap:wrap}
+.sync .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
+.sync.ok .dot{background:var(--ok)} .sync.err .dot{background:var(--danger)} .sync.pend .dot{background:var(--warn)}
+.sync.err{color:var(--danger)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px;min-width:0}
+.stat .v{font-size:22px;font-weight:700;line-height:1.2}
+.stat .l{font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em}
+.stat.good .v{color:var(--ok)} .stat.bad .v{color:var(--danger)}
+.hecha{width:100%;margin-top:12px;font-size:17px;background:var(--accent-soft);color:var(--text)}
+.hecha.on{background:var(--ok);color:#fff}
+.seg{display:flex;gap:8px;margin-top:6px}
+.seg .btn{flex:1;background:var(--accent-soft);color:var(--text);padding:10px 8px}
+.seg .btn.on{background:var(--accent);color:var(--accent-ink)}
+.seg .btn.on.si{background:var(--ok);color:#fff}
+.seg .btn.on.no{background:var(--danger);color:#fff}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.chips button{background:var(--bg);border:1px solid var(--line);color:var(--text);padding:8px 12px;min-height:40px;font-size:14px;font-weight:600}
+.chips button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.cl{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line);text-align:left;width:100%;
+  background:none;color:var(--text);border-radius:0;font-weight:400;justify-content:flex-start;min-height:0}
+.cl:first-of-type{border-top:0}
+.cl .bx{width:26px;height:26px;border-radius:8px;border:2px solid var(--line);flex:none;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;margin-top:1px}
+.cl.on .bx{background:var(--ok);border-color:var(--ok);color:#fff}
+.cl .tx{flex:1;min-width:0}
+.cl .tx b{display:block;font-weight:700}
+.cl .tx span{font-size:14px;color:var(--muted)}
+.pts{margin:6px 0 0;padding-left:20px;font-size:15px}
+.pts li{margin:5px 0}
+.oprow{width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:12px;margin-bottom:8px;color:var(--text);font-weight:400;display:block;min-height:0}
+.oprow .t{font-weight:700;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.oprow .s{font-size:13px;color:var(--muted);margin-top:3px}
+.pos{color:var(--ok);font-weight:700} .neg{color:var(--danger);font-weight:700}
+.vacio{color:var(--muted);font-size:15px;padding:6px 0}
+.ratio{font-weight:700}
+.weekpick{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.weekpick .btn{padding:8px 14px;min-height:40px;flex:none}
+.weekpick .lbl{flex:1;text-align:center;font-weight:700;min-width:0}
+.fase{border-top:1px solid var(--line);padding:10px 0}
+.fase:first-of-type{border-top:0}
+.fase.on{background:var(--accent-soft);margin:0 -14px;padding:10px 14px;border-radius:10px;border-top:0}
+.sep{border-top:1px solid var(--line);margin:12px 0}
+@media (max-width:359px){ .f3{grid-template-columns:1fr 1fr} }
+</style>
+</head>
+<body>
+<header class="top"><h1>Trading 26/27</h1><span class="pill" id="pill"></span></header>
+<main id="view"></main>
+<nav class="tabbar" id="tabbar"></nav>
+<script>
+/* =====================================================================
+   DATOS · todo lo que sale de PLAN.md. Para cambiar el plan se toca aquí,
+   no la interfaz.
+   ===================================================================== */
+
+const CURSO_INICIO = '2026-09-14';   // lunes de la semana 1
+const CURSO_FIN    = '2027-07-31';
+const DIAS_ATRAS   = 2;              // desde Hoy se puede marcar ayer y anteayer
+const RATIO_MINIMO = 3;              // checklist 5: al menos 1:3 hasta TP1
+const OBJETIVO_SEMANA = { rev730: 5, ny1530: 5, formacion: 2 };
+const OBJETIVO_CUMPLIMIENTO = 100;   // % de días dentro de reglas (objetivo del plan)
+
+// Checklist de la revisión de 7:30 (lunes a viernes, 7:30-7:40).
+const CHECKLIST_730 = [
+  'Posiciones abiertas: ¿sigue vigente la razón de cada una?',
+  'Candidatas que hayan llegado a zona o dado gatillo.',
+  'Noticias del día y decisión por posición (anotar las horas de alto impacto).',
+  'Una línea en el diario.'
+];
+
+// Checklist de swing de la sesión de Nueva York (lunes a viernes, 15:30-15:50).
+const CHECKLIST_NY = [
+  'Ejecutar lo planificado.',
+  'Nada fuera del plan: lo nuevo se apunta para mañana.',
+  'Viernes sin aperturas; solo gestión y exposición de fin de semana.'
+];
+
+// Fases del scalping. La fase activa se elige en Ajustes y se escribe en Dias!K.
+const FASES = [
+  { n: 0, nombre: 'Fase 0 · fundamentos', cuando: 'septiembre-octubre',
+    tarea: 'Observar la apertura de Nueva York en 1 min durante 10 minutos y apuntar una línea.',
+    paso: 'Spread y comisión de XAUUSD medidos, oro por sesiones y price action de 1-5 min estudiados.' },
+  { n: 1, nombre: 'Fase 1 · estrategia y backtesting', cuando: 'noviembre-diciembre',
+    tarea: 'Replay de TradingView: casos del setup escrito, uno a uno, a la hoja Backtest.',
+    paso: '100 casos con esperanza positiva descontando costes y no más de 8 pérdidas seguidas.' },
+  { n: 2, nombre: 'Fase 2 · demo', cuando: 'enero-febrero',
+    tarea: 'MT5 demo con el tamaño de la futura cuenta. Máximo 2 operaciones.',
+    paso: '40 operaciones, esperanza positiva, 95 % de cumplimiento y ningún día por encima de la pérdida diaria.' },
+  { n: 3, nombre: 'Fase 3 · cuenta pequeña real', cuando: 'marzo-abril',
+    tarea: 'Cuenta dedicada real, 0,25-0,5 % por operación. Máximo 2 operaciones.',
+    paso: 'Challenge superado o dos meses con esperanza positiva sin romper reglas.' },
+  { n: 4, nombre: 'Fase 4 · consolidación', cuando: 'mayo-julio',
+    tarea: 'Operativa de scalping ya consolidada; se registra igual que el swing.',
+    paso: 'En junio se decide con datos si sigue, se amplía o se deja.' }
+];
+
+// Formación: 0 = lunes. Martes swing y proceso, jueves scalping.
+const FORMACION = {
+  1: { nombre: 'Formación · swing y proceso', hora: '16:00-17:30',
+       detalle: 'Primer trimestre: revisar las últimas 30-50 operaciones con la checklist (cumplía sí/no, resultado en R). Una sesión al mes de errores del diario; el resto, lectura de proceso ("The Playbook", "Trading in the Zone").' },
+  3: { nombre: 'Formación · scalping', hora: '16:00-17:30', detalle: null }   // el detalle es la fase activa
+};
+
+const PLANIFICACION = {
+  hora: '10:00-12:00 (trading primero, 45-60 min)',
+  puntos: [
+    'Estado de cuentas.',
+    'Revisión de la semana con el diario.',
+    'Calendario económico.',
+    'Recorrer la lista fija y la cartera de largo plazo buscando fin de ciclo y nueva zona repetida.',
+    'Marcar candidatas en TradingView con entrada, stop, TP1 y ratio, y escribirlas en la pestaña Semana.'
+  ]
+};
+
+// Checklist de entrada: las cinco a la vez (columnas L-P de Operaciones).
+const CHECKLIST_ENTRADA = [
+  { id: 'c1', corto: 'Fin de ciclo',
+    texto: 'El precio ha completado, o está a punto de completar, la última zona roja de la tendencia bajista y no queda ninguna más cerca en esa dirección (espejo para cortos).' },
+  { id: 'c2', corto: 'Nueva zona objetivo',
+    texto: 'Hay una zona HeatMap repetida en 3 o más temporalidades en la dirección de la nueva tendencia, con recorrido alcanzable esta semana.' },
+  { id: 'c3', corto: 'Gatillo',
+    texto: 'Fin de ciclo confirmado o rotura que ya inicia la otra tendencia, con retroceso apoyado en un pivot (típico: giro alcista y retroceso a S61).' },
+  { id: 'c4', corto: 'Contexto',
+    texto: 'Tendencia de fondo, resistencias fuertes y roturas de línea de tendencia no contradicen la operación.' },
+  { id: 'c5', corto: 'Ratio ≥ 1:3',
+    texto: 'Al menos 1:3 hasta TP1.' }
+];
+
+const CHECKLIST_GESTION = [
+  'Movimiento brusco a favor: cerrar parcial (o todo si ya está en TP1).',
+  'Break even en operaciones grandes (1:5 o más) cuando va por 1:3.',
+  'Noticia de alto impacto pendiente: stop más alejado, break even o cerrar parciales muy positivos.',
+  'Cierre por calendario: día de retiro o cuenta en su objetivo.',
+  'Viernes 15:30: revisar exposición de fin de semana.'
+];
+
+const REGLAS_RIESGO = [
+  '1 % por operación con una o dos posiciones abiertas; 0,75 % a partir de la tercera. En challenge, 1 % siempre y máximo tres posiciones.',
+  'Riesgo abierto máximo por cuenta 2,25 % (3 % en challenge). Nunca cuatro posiciones. Una posición en break even deja de contar.',
+  'El riesgo en dinero es siempre el mismo: el tamaño se adapta al stop, nunca al revés.',
+  'Freno diario: con -1,5 % en el día no se abre nada nuevo; lo abierto se gestiona con normalidad.',
+  'Freno semanal: con -3 % en la semana solo se gestiona lo abierto; el domingo se revisa antes de volver a abrir.',
+  'Cuentas de 100K-200K: ninguna apertura ni cierre manual en ±2 min de noticias de alto impacto.',
+  'En la de 200K ningún día suma más de 8.000 $; si se acerca, no se cierran más parciales ese día.',
+  'La misma operación con el mismo porcentaje en todas las cuentas. Nunca se sube el riesgo para llegar antes al objetivo.',
+  'Scalping en real: cuenta dedicada, 0,25-0,5 % por operación, máximo 2 al día, pérdida diaria propia del 1 %.'
+];
+
+const NO_SE_HACE = [
+  'Ninguna operación de menos de un día en cuentas de swing.',
+  'En Quantfury, inversión a largo plazo y trading no se mezclan.',
+  'Ninguna operación fuera de la lista de candidatas del domingo, salvo que cumpla la checklist entera y se anote el motivo.'
+];
+
+const ESTRATEGIA = {
+  universo: 'XAUUSD, BTCUSD, TSLA, NVDA y META como lista fija; ampliable a acciones de la cartera de largo plazo que cumplan la checklist entera.',
+  temporalidad: 'Análisis de diario a 1H; entrada y gestión en 1H. Por debajo de 1H solo para afinar un cierre, nunca para abrir.',
+  duracion: 'Duración esperada 3-8 días laborables. Aperturas de lunes a jueves; viernes solo gestión; fin de semana nada.',
+  stop: 'Uno o dos pivots por debajo de la entrada según el tamaño; si hay una zona HeatMap cercana, el stop queda por debajo de ella.',
+  objetivos: 'TP1, TP2… son las siguientes zonas HeatMap. Sin TP fijo: se gestiona.'
+};
+
+const FRENOS = {
+  diario:  'Freno diario activo: no se abre nada nuevo hasta mañana. Lo abierto se gestiona con normalidad.',
+  semanal: 'Freno semanal activo: solo se gestiona lo abierto. El domingo se revisa qué ha pasado antes de volver a abrir.'
+};
+
+const CUENTAS = ['50K-A', '50K-B', '200K', '100K', 'Propia', 'Scalping'];
+const ACTIVOS = ['XAUUSD', 'BTCUSD', 'TSLA', 'NVDA', 'META'];
+const ESTADOS_CANDIDATA = ['pendiente', 'entrada', 'descartada', 'siguiente semana'];
+
+const OBJETIVOS = [
+  'Aprobar la cuenta de 200K antes del 15-10-2026 y la de 100K antes del 15-12-2026. Si una fecha no llega, se aplaza; nunca se sube el tamaño.',
+  '100 % de operaciones dentro de la checklist y las reglas de riesgo.',
+  'Revisión de 7:30 y sesión de 15:30 al menos 4 de 5 días; planificación cada domingo.',
+  'Formación: martes swing y proceso, jueves scalping, 1,5 h cada uno.'
+];
+
+/* =====================================================================
+   INTERFAZ · a partir de aquí no hace falta tocar nada para cambiar datos
+   ===================================================================== */
+
+// --- Utilidades ------------------------------------------------------------
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const cap = (s) => String(s || '').charAt(0).toUpperCase() + String(s || '').slice(1);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+// localStorage siempre entre try/catch: en modo privado o sin permiso puede fallar.
+const LS = {
+  get(k, def) { try { const v = localStorage.getItem('trading2627:' + k); return v === null ? def : JSON.parse(v); } catch (e) { return def; } },
+  set(k, v) { try { localStorage.setItem('trading2627:' + k, JSON.stringify(v)); } catch (e) { /* sin persistencia */ } },
+};
+
+// Números escritos con coma o con punto. '' cuando no hay nada que escribir.
+function num(v) { const s = String(v == null ? '' : v).replace(',', '.').trim(); if (s === '') return ''; const n = parseFloat(s); return isNaN(n) ? '' : n; }
+function fmt(n, d) { return Number(n).toFixed(d == null ? 2 : d).replace('.', ','); }
+
+// --- Fechas ----------------------------------------------------------------
+// Para previsualizar otro día abre la app con ?fecha=2026-10-15
+const FECHA_FORZADA = (() => { try { return new URLSearchParams(location.search).get('fecha'); } catch (e) { return null; } })();
+function parseISO(s) { const [y, m, d] = String(s).split('-').map(Number); return new Date(y, m - 1, d); }
+function fechaISO(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function hoy() { if (FECHA_FORZADA && /^\d{4}-\d{2}-\d{2}$/.test(FECHA_FORZADA)) return parseISO(FECHA_FORZADA); const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function sumarDias(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
+function diaSemana(d) { return (d.getDay() + 6) % 7; }                       // 0 = lunes … 6 = domingo
+function semanaCurso(d) { return Math.floor(Math.round((d - parseISO(CURSO_INICIO)) / 86400000) / 7) + 1; }
+function enCurso(d) { return d >= parseISO(CURSO_INICIO) && d <= parseISO(CURSO_FIN); }
+function lunesDe(d) { return sumarDias(d, -diaSemana(d)); }
+function fechaLarga(d) { return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }); }
+function fechaCorta(d) { return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }); }
+const ULTIMA_SEMANA = Math.max(1, semanaCurso(parseISO(CURSO_FIN)));
+// El domingo planifica la semana siguiente; el resto de días, la semana en curso.
+function semanaPlan(d) { return Math.max(1, Math.min(ULTIMA_SEMANA, diaSemana(d) === 6 ? semanaCurso(d) + 1 : semanaCurso(d))); }
+function domingoDeSemana(w) { return sumarDias(parseISO(CURSO_INICIO), 7 * (w - 1) - 1); }   // domingo previo al lunes de esa semana
+
+// --- Estado ----------------------------------------------------------------
+const TABS = [
+  { id: 'hoy', n: 'Hoy', ic: '📅' }, { id: 'diario', n: 'Diario', ic: '📈' },
+  { id: 'semana', n: 'Semana', ic: '🗓️' }, { id: 'plan', n: 'Plan', ic: '📋' },
+  { id: 'ajustes', n: 'Ajustes', ic: '⚙️' },
+];
+const state = {
+  tab: LS.get('tab', 'hoy'),
+  offset: 0,                                  // 0 = hoy, -1 = ayer, -2 = anteayer
+  registro: LS.get('registro', {}),           // { 'AAAA-MM-DD': {rev730, ny1530, formacion, planificacion, reglas, reglaIncumplida, freno, notas} }
+  operaciones: LS.get('operaciones', []),     // [{uid, id?, fechaApertura, …}]
+  candidatas: LS.get('candidatas', []),       // [{uid, fila?, fecha, …}]
+  estadoSemanal: LS.get('estadoSemanal', []), // [{uid, fecha, cuenta, …}]
+  backtest: LS.get('backtest', []),           // [{uid, fecha, estrategia, …}]
+  cuentas: LS.get('cuentas', []),             // solo lectura, se trae de la hoja
+  cola: LS.get('cola', []),                   // [{k, accion, datos, uid}] pendientes de enviar
+  ajustes: LS.get('ajustes', { url: '', token: '', fase: 0 }),
+  form: LS.get('form', null),                 // operación abierta en el editor
+  semanaSel: null,                            // semana elegida en la pestaña Semana
+  borrar: null,                               // confirmación de "quitar de la app"
+};
+if (!state.ajustes || typeof state.ajustes !== 'object') state.ajustes = { url: '', token: '', fase: 0 };
+if (!(state.ajustes.fase >= 0 && state.ajustes.fase <= 4)) state.ajustes.fase = 0;
+['operaciones', 'candidatas', 'estadoSemanal', 'backtest', 'cuentas', 'cola'].forEach((k) => { if (!Array.isArray(state[k])) state[k] = []; });
+if (!TABS.some((t) => t.id === state.tab)) state.tab = 'hoy';
+const borradores = { cand: null, est: null, bt: null };   // formularios de Semana y Plan (no se guardan)
+
+function guardar() { LS.set('tab', state.tab); }
+function faseActual() { return FASES[state.ajustes.fase] || FASES[0]; }
+function fechaTab() { return sumarDias(hoy(), state.offset); }
+function regDe(iso) { return state.registro[iso] || {}; }
+function guardarRegistro(iso, cambios) { state.registro[iso] = Object.assign({}, regDe(iso), cambios); LS.set('registro', state.registro); }
+function semanaSel() { return state.semanaSel != null ? state.semanaSel : semanaPlan(hoy()); }
+
+// --- Cola de sincronización -------------------------------------------------
+function configurado() { return !!(state.ajustes.url && state.ajustes.token); }
+const sync = { enCurso: false, error: '', ultima: LS.get('syncUltima', null), msgAjustes: null, msgCopia: null, importPendiente: null };
+
+// Un elemento por registro (k). Los cambios del mismo registro se fusionan.
+function encolar(k, accion, datos, ref) {
+  const i = state.cola.findIndex((c) => c.k === k);
+  if (i >= 0) Object.assign(state.cola[i].datos, datos);
+  else state.cola.push({ k, accion, datos: Object.assign({}, datos), ref: ref || null });
+  LS.set('cola', state.cola); pintarSync(); sincronizar();
+}
+function encolarDia(iso, cambios) {
+  if (!enCurso(parseISO(iso))) { pintarSync(); return; }     // fuera del curso no hay fila en la hoja
+  encolar('dia:' + iso, 'dia', Object.assign({ fecha: iso, fase: state.ajustes.fase }, cambios));
+}
+function errorLegible(e) {
+  const m = (e && e.message) || String(e);
+  if (/Failed to fetch|NetworkError|Load failed|network|fetch/i.test(m)) return 'sin conexión o URL incorrecta';
+  return m;
+}
+// POST con text/plain (evita el preflight de CORS con Apps Script) y redirect: 'follow'.
+async function llamarScript(metodo, cuerpo) {
+  const { url, token } = state.ajustes;
+  let res;
+  if (metodo === 'GET') {
+    const q = new URLSearchParams(Object.assign({ token }, cuerpo)).toString();
+    res = await fetch(url + (url.includes('?') ? '&' : '?') + q, { method: 'GET', redirect: 'follow' });
+  } else {
+    res = await fetch(url, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(Object.assign({ token }, cuerpo)) });
+  }
+  const txt = await res.text();
+  let j; try { j = JSON.parse(txt); } catch (e) { throw new Error('la URL no responde JSON (¿es la que termina en /exec?)'); }
+  if (!j.ok) { const err = new Error(j.error || 'error del script'); err.codigo = j.codigo; throw err; }
+  return j;
+}
+// Antes de enviar se completan las claves que la hoja ya conoce (id de operación, fila de candidata).
+function prepararEnvio(item) {
+  if (item.accion === 'operacion' && item.ref) {
+    const op = state.operaciones.find((o) => o.uid === item.ref);
+    if (op && op.id != null) item.datos.id = op.id;
+  }
+  if (item.accion === 'candidata' && item.ref) {
+    const c = state.candidatas.find((x) => x.uid === item.ref);
+    if (c && c.fila != null) item.datos.fila = c.fila;
+  }
+  return item.datos;
+}
+async function sincronizar() {
+  if (sync.enCurso || !configurado() || !state.cola.length) { pintarSync(); return; }
+  sync.enCurso = true; pintarSync();
+  try {
+    while (state.cola.length) {
+      const item = state.cola[0];
+      let j;
+      try { j = await llamarScript('POST', { accion: item.accion, datos: prepararEnvio(item) }); }
+      catch (e) {
+        // Lo que la hoja nunca podrá aceptar se descarta para no bloquear la cola.
+        if (/fecha no encontrada|fecha inválida|acción desconocida|id fuera|id inválido/i.test(e.message || '')) {
+          state.cola.shift(); LS.set('cola', state.cola); sync.error = `${item.k}: ${e.message}`; continue;
+        }
+        throw e;
+      }
+      if (item.accion === 'operacion' && item.ref && j.id != null) {
+        const op = state.operaciones.find((o) => o.uid === item.ref);
+        if (op && op.id == null) { op.id = j.id; LS.set('operaciones', state.operaciones); }
+      }
+      if (item.accion === 'candidata' && item.ref && j.fila != null) {
+        const c = state.candidatas.find((x) => x.uid === item.ref);
+        if (c && c.fila == null) { c.fila = j.fila; LS.set('candidatas', state.candidatas); }
+      }
+      state.cola.shift(); LS.set('cola', state.cola); sync.error = '';
+    }
+    sync.ultima = Date.now(); LS.set('syncUltima', sync.ultima);
+  } catch (e) { sync.error = errorLegible(e); }
+  sync.enCurso = false; pintarSync();
+}
+function estadoSync() {
+  const n = state.cola.length, pend = n ? ` · ${n} pendiente${n > 1 ? 's' : ''}` : '';
+  if (!configurado()) return ['idle', 'Sin configurar' + pend, 'toca para ir a Ajustes'];
+  if (sync.enCurso) return ['pend', 'Enviando…', ''];
+  if (sync.error) return ['err', 'Error: ' + sync.error + pend, 'toca para reintentar'];
+  if (n) return ['pend', `${n} pendiente${n > 1 ? 's' : ''}`, 'toca para reintentar'];
+  const h = sync.ultima ? new Date(sync.ultima).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '';
+  return ['ok', 'Sincronizado' + (h ? ' · ' + h : ''), ''];
+}
+function syncHTML() {
+  const [cls, txt, sub] = estadoSync();
+  return `<button class="sync ${cls}" id="sync" data-act="sync"><span class="dot"></span><span>${esc(txt)}</span>${sub ? `<span class="muted small">· ${esc(sub)}</span>` : ''}</button>`;
+}
+function textoCola() { const n = state.cola.length; return n ? `${n} cambio${n > 1 ? 's' : ''} pendiente${n > 1 ? 's' : ''} de enviar.` : 'No hay cambios pendientes.'; }
+// Repinta solo el indicador, para no perder el foco de los campos de texto.
+function pintarSync() { const el = $('#sync'); if (el) el.outerHTML = syncHTML(); const c = $('#colaInfo'); if (c) c.textContent = textoCola(); }
+
+// --- Operaciones, candidatas y demás registros ------------------------------
+function opNueva(iso) {
+  return { uid: uid(), fechaApertura: iso, tipo: 'swing', activo: '', direccion: 'largo', cuentas: [],
+    entrada: '', stop: '', tp1: '', riesgo: '', c1: false, c2: false, c3: false, c4: false, c5: false,
+    gestion: '', fechaCierre: '', resultadoR: '', dentroReglas: '', motivo: '', aprendizaje: '' };
+}
+function ratioDe(o) {
+  const e = num(o.entrada), s = num(o.stop), t = num(o.tp1);
+  if (e === '' || s === '' || t === '' || e === s) return null;
+  return Math.abs(t - e) / Math.abs(e - s);
+}
+function checklistOK(o) { return CHECKLIST_ENTRADA.every((c) => !!o[c.id]); }
+function cerrada(o) { return String(o.fechaCierre || '') !== '' || num(o.resultadoR) !== ''; }
+function payloadOp(o) {
+  return { fechaApertura: o.fechaApertura || '', tipo: o.tipo || '', activo: o.activo || '', direccion: o.direccion || '',
+    cuentas: (o.cuentas || []).join(', '), entrada: num(o.entrada), stop: num(o.stop), tp1: num(o.tp1), riesgo: num(o.riesgo),
+    c1: !!o.c1, c2: !!o.c2, c3: !!o.c3, c4: !!o.c4, c5: !!o.c5, gestion: o.gestion || '',
+    fechaCierre: o.fechaCierre || '', resultadoR: num(o.resultadoR), dentroReglas: o.dentroReglas || '',
+    motivo: o.motivo || '', aprendizaje: o.aprendizaje || '' };
+}
+function guardarOperacion(o) {
+  const i = state.operaciones.findIndex((x) => x.uid === o.uid);
+  if (i >= 0) state.operaciones[i] = o; else state.operaciones.unshift(o);
+  LS.set('operaciones', state.operaciones);
+  encolar('op:' + o.uid, 'operacion', payloadOp(o), o.uid);
+}
+function payloadCand(c) {
+  return { fecha: c.fecha || '', activo: c.activo || '', direccion: c.direccion || '', zona: num(c.zona),
+    stop: num(c.stop), tp1: num(c.tp1), estado: c.estado || '', notas: c.notas || '' };
+}
+function guardarCandidata(c) {
+  const i = state.candidatas.findIndex((x) => x.uid === c.uid);
+  if (i >= 0) state.candidatas[i] = c; else state.candidatas.push(c);
+  LS.set('candidatas', state.candidatas);
+  encolar('cand:' + c.uid, 'candidata', payloadCand(c), c.uid);
+}
+function guardarEstadoSemanal(x) {
+  state.estadoSemanal.unshift(x); LS.set('estadoSemanal', state.estadoSemanal);
+  encolar('est:' + x.uid, 'estadoSemanal', { fecha: x.fecha || '', cuenta: x.cuenta || '', balance: num(x.balance),
+    drawdown: num(x.drawdown), diasRentables: num(x.diasRentables), proximoRetiro: x.proximoRetiro || '',
+    progreso: num(x.progreso), notas: x.notas || '' }, x.uid);
+}
+function guardarBacktest(x) {
+  state.backtest.unshift(x); LS.set('backtest', state.backtest);
+  encolar('bt:' + x.uid, 'backtest', { fecha: x.fecha || '', estrategia: x.estrategia || '', activo: x.activo || '',
+    direccion: x.direccion || '', checklist: x.checklist || '', resultadoR: num(x.resultadoR), notas: x.notas || '' }, x.uid);
+}
+
+// --- Contadores -------------------------------------------------------------
+function contarSemana(lunes) {
+  const c = { rev730: 0, ny1530: 0, formacion: 0 };
+  for (let i = 0; i < 7; i++) {
+    const d = sumarDias(lunes, i), r = regDe(fechaISO(d));
+    if (i <= 4) { if (r.rev730) c.rev730++; if (r.ny1530) c.ny1530++; }
+    if (i === 1 || i === 3) { if (r.formacion) c.formacion++; }
+  }
+  return c;
+}
+function cumplimientoMes(ref) {
+  let marcados = 0, si = 0;
+  for (let d = new Date(ref.getFullYear(), ref.getMonth(), 1); d <= ref; d = sumarDias(d, 1)) {
+    const r = regDe(fechaISO(d));
+    if (r.reglas === 'sí' || r.reglas === 'no') { marcados++; if (r.reglas === 'sí') si++; }
+  }
+  return { marcados, si, pct: marcados ? Math.round(100 * si / marcados) : null };
+}
+
+// --- Traer datos de la hoja y copias de seguridad ---------------------------
+async function probarConexion() {
+  if (!configurado()) { sync.msgAjustes = { texto: 'Falta la URL o el token.', err: true }; render(); return; }
+  sync.msgAjustes = { texto: 'Probando…' }; render();
+  try {
+    const j = await llamarScript('GET', { que: 'cuentas' });
+    state.cuentas = j.filas || []; LS.set('cuentas', state.cuentas);
+    sync.msgAjustes = { texto: `Conexión correcta. La hoja Cuentas tiene ${state.cuentas.length} cuenta(s).` };
+    sync.error = ''; sincronizar();
+  } catch (e) { sync.msgAjustes = { texto: 'Error: ' + errorLegible(e), err: true }; }
+  render();
+}
+async function recuperarDeLaHoja() {
+  if (!configurado()) { sync.msgAjustes = { texto: 'Falta la URL o el token.', err: true }; render(); return; }
+  sync.msgAjustes = { texto: 'Recuperando…' }; render();
+  try {
+    const dias = await llamarScript('GET', { que: 'dias', desde: CURSO_INICIO });
+    (dias.filas || []).forEach((f) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(f.fecha || ''))) return;
+      guardarRegistro(f.fecha, { rev730: !!f.rev730, ny1530: !!f.ny1530, formacion: !!f.formacion,
+        planificacion: !!f.planificacion, reglas: String(f.reglas || ''), reglaIncumplida: String(f.reglaIncumplida || ''),
+        freno: String(f.freno || ''), notas: String(f.notas || '') });
+    });
+    const ops = await llamarScript('GET', { que: 'operaciones' });
+    const pendientesOp = state.operaciones.filter((o) => o.id == null);
+    state.operaciones = (ops.filas || []).map((f) => ({
+      uid: 'hoja-op-' + f.id, id: f.id, fechaApertura: f.fechaApertura || '', tipo: String(f.tipo || ''),
+      activo: String(f.activo || ''), direccion: String(f.direccion || ''),
+      cuentas: String(f.cuentas || '').split(',').map((s) => s.trim()).filter(Boolean),
+      entrada: f.entrada, stop: f.stop, tp1: f.tp1, riesgo: f.riesgo,
+      c1: !!f.c1, c2: !!f.c2, c3: !!f.c3, c4: !!f.c4, c5: !!f.c5, gestion: String(f.gestion || ''),
+      fechaCierre: f.fechaCierre || '', resultadoR: f.resultadoR, dentroReglas: String(f.dentroReglas || ''),
+      motivo: String(f.motivo || ''), aprendizaje: String(f.aprendizaje || '')
+    })).reverse().concat(pendientesOp);
+    LS.set('operaciones', state.operaciones);
+    const cand = await llamarScript('GET', { que: 'candidatas' });
+    const pendientesCand = state.candidatas.filter((c) => c.fila == null);
+    state.candidatas = (cand.filas || []).map((f) => ({
+      uid: 'hoja-cand-' + f.fila, fila: f.fila, fecha: f.fecha || '', activo: String(f.activo || ''),
+      direccion: String(f.direccion || ''), zona: f.zona, stop: f.stop, tp1: f.tp1,
+      estado: String(f.estado || ''), notas: String(f.notas || '')
+    })).concat(pendientesCand);
+    LS.set('candidatas', state.candidatas);
+    const cu = await llamarScript('GET', { que: 'cuentas' });
+    state.cuentas = cu.filas || []; LS.set('cuentas', state.cuentas);
+    sync.msgAjustes = { texto: `Recuperado de la hoja: ${(dias.filas || []).length} día(s), ${(ops.filas || []).length} operación(es), ${(cand.filas || []).length} candidata(s) y ${state.cuentas.length} cuenta(s).` };
+  } catch (e) { sync.msgAjustes = { texto: 'Error: ' + errorLegible(e), err: true }; }
+  render();
+}
+function exportarJSON() {
+  const out = { app: 'trading2627', version: 1, fecha: new Date().toISOString(), datos: {} };
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('trading2627:')) out.datos[k] = localStorage.getItem(k); } } catch (e) {}
+  return JSON.stringify(out, null, 2);
+}
+function descargarCopia() {
+  try {
+    const blob = new Blob([exportarJSON()], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `trading-2627-copia-${fechaISO(new Date())}.json`;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+    sync.msgCopia = { texto: 'Copia generada. Guárdala en Archivos, Drive o mándatela por correo.' };
+  } catch (e) { sync.msgCopia = { texto: 'No se pudo generar la copia: ' + errorLegible(e), err: true }; }
+  render();
+}
+function leerCopia(file) {
+  if (!file) return;
+  const fr = new FileReader();
+  fr.onload = () => {
+    try {
+      const o = JSON.parse(fr.result);
+      if (!o || o.app !== 'trading2627' || !o.datos || typeof o.datos !== 'object') throw new Error('el fichero no es una copia de Trading 26/27');
+      sync.importPendiente = { datos: o.datos, n: Object.keys(o.datos).length, fecha: o.fecha ? new Date(o.fecha).toLocaleString('es-ES') : 'fecha desconocida' };
+      sync.msgCopia = null;
+    } catch (e) { sync.importPendiente = null; sync.msgCopia = { texto: 'Error: ' + errorLegible(e), err: true }; }
+    render();
+  };
+  fr.onerror = () => { sync.msgCopia = { texto: 'No se pudo leer el fichero.', err: true }; render(); };
+  fr.readAsText(file);
+}
+function aplicarImportacion() {
+  const imp = sync.importPendiente; if (!imp) return;
+  try {
+    Object.keys(localStorage).filter((k) => k.startsWith('trading2627:')).forEach((k) => localStorage.removeItem(k));
+    Object.entries(imp.datos).forEach(([k, v]) => { if (k.startsWith('trading2627:') && typeof v === 'string') localStorage.setItem(k, v); });
+  } catch (e) { sync.importPendiente = null; sync.msgCopia = { texto: 'No se pudo restaurar: ' + errorLegible(e), err: true }; render(); return; }
+  location.reload();
+}
+
+// --- Trozos de formulario ---------------------------------------------------
+function campo(lbl, html) { return `<div class="field"><label>${esc(lbl)}</label>${html}</div>`; }
+function inp(o, f, v, ph, tipo, extra) {
+  return `<input type="${tipo || 'text'}" data-o="${o}" data-f="${f}" value="${esc(v == null ? '' : v)}" placeholder="${esc(ph || '')}" ${extra || ''}>`;
+}
+function inpNum(o, f, v, ph) { return inp(o, f, v, ph, 'text', 'inputmode="decimal" autocomplete="off"'); }
+function inpFecha(o, f, v) { return inp(o, f, v, '', 'date'); }
+function ta(o, f, v, ph) { return `<textarea data-o="${o}" data-f="${f}" placeholder="${esc(ph || '')}">${esc(v || '')}</textarea>`; }
+function seg(act, actual, ops, extra) {
+  return `<div class="seg">${ops.map((o) => {
+    const v = o.v == null ? o : o.v, n = o.n == null ? o : o.n, cls = o.cls || '';
+    return `<button class="btn ${String(actual) === String(v) ? 'on ' + cls : ''}" data-act="${act}" data-v="${esc(v)}" ${extra || ''}>${esc(n)}</button>`;
+  }).join('')}</div>`;
+}
+function clItem(id, corto, texto, on, act, extra) {
+  return `<button class="cl ${on ? 'on' : ''}" data-act="${act}" data-id="${id}" ${extra || ''}>
+    <span class="bx">${on ? '✓' : ''}</span><span class="tx"><b>${esc(corto)}</b><span>${esc(texto)}</span></span></button>`;
+}
+function tagRatio(r) {
+  if (r == null) return '<span class="muted">ratio: faltan datos</span>';
+  const ok = r >= RATIO_MINIMO;
+  return `<span class="ratio ${ok ? 'pos' : 'neg'}">Ratio 1:${fmt(r, 2)}</span> <span class="muted small">${ok ? '' : '· por debajo de 1:' + RATIO_MINIMO}</span>`;
+}
+
+// --- Pestaña Hoy ------------------------------------------------------------
+function tarjetaDia(iso, key, titulo, hora, cuerpo, reg) {
+  const on = !!reg[key];
+  return `<div class="card"><h3>${esc(titulo)}${hora ? ' · ' + esc(hora) : ''}</h3>${cuerpo}
+    <button class="btn hecha ${on ? 'on' : ''}" data-act="marcar" data-key="${key}" data-fecha="${iso}">${on ? '✓ Hecha · Deshacer' : 'Hecha ✓'}</button></div>`;
+}
+function viewHoy() {
+  const d = fechaTab(), real = hoy(), iso = fechaISO(d), dow = diaSemana(d), w = semanaCurso(d);
+  const reg = regDe(iso), fase = faseActual();
+  let h = '';
+  if (w < 1) {
+    const faltan = Math.round((parseISO(CURSO_INICIO) - d) / 86400000);
+    h += `<div class="notice">El curso empieza el lunes ${fechaCorta(parseISO(CURSO_INICIO))} (${faltan === 1 ? 'falta 1 día' : 'faltan ' + faltan + ' días'}). Lo que marques antes no tiene fila en la hoja y se queda solo aquí.</div>`;
+  } else if (!enCurso(d)) {
+    h += `<div class="notice">Fuera del curso: no hay fila para este día en la hoja.</div>`;
+  }
+  const dif = state.offset, etiqueta = dif === 0 ? '' : dif === -1 ? 'ayer' : 'anteayer';
+  h += `<div class="card"><div class="datebar">
+    <button class="btn sec" data-act="dia" data-d="-1" ${dif <= -DIAS_ATRAS ? 'disabled' : ''} aria-label="Día anterior">‹</button>
+    <div class="d"><div class="hoy-big">${esc(cap(fechaLarga(d)))}${etiqueta ? ` <span class="tag warn">${etiqueta}</span>` : ''}</div>
+      <div class="hoy-sub">${w < 1 ? 'Pretemporada' : 'Semana ' + w} · ${esc(fase.nombre)}</div></div>
+    <button class="btn sec" data-act="dia" data-d="1" ${dif >= 0 ? 'disabled' : ''} aria-label="Día siguiente">›</button></div>
+    ${dif !== 0 ? `<button class="btn ghost block" data-act="diaHoy">Volver a hoy</button>` : ''}
+    ${syncHTML()}</div>`;
+
+  const sem = contarSemana(lunesDe(real)), mes = cumplimientoMes(real);
+  h += `<div class="stats">
+    <div class="stat"><div class="l">Esta semana</div>
+      <div class="v">7:30 ${sem.rev730}/${OBJETIVO_SEMANA.rev730}</div>
+      <div class="muted small">15:30 ${sem.ny1530}/${OBJETIVO_SEMANA.ny1530} · formación ${sem.formacion}/${OBJETIVO_SEMANA.formacion}</div></div>
+    <div class="stat ${mes.pct == null ? '' : mes.pct >= OBJETIVO_CUMPLIMIENTO ? 'good' : 'bad'}"><div class="l">Cumplimiento del mes</div>
+      <div class="v">${mes.pct == null ? '—' : mes.pct + ' %'}</div>
+      <div class="muted small">${mes.pct == null ? 'sin días marcados aún' : `${mes.si} de ${mes.marcados} días con reglas marcadas`}</div></div></div>`;
+
+  if (dow <= 4) {
+    h += tarjetaDia(iso, 'rev730', 'Revisión', '7:30', `<ol class="pts">${CHECKLIST_730.map((t) => `<li>${esc(t)}</li>`).join('')}</ol>`, reg);
+    h += tarjetaDia(iso, 'ny1530', 'Nueva York', '15:30',
+      `<ol class="pts">${CHECKLIST_NY.map((t) => `<li>${esc(t)}</li>`).join('')}</ol>
+       <div class="sep"></div>
+       <p class="small b">Scalping · ${esc(fase.nombre)}</p>
+       <p class="small">${esc(fase.tarea)}</p>
+       <p class="small muted">Si un día no hay tiempo para el scalping, se salta; el swing no.</p>`, reg);
+  }
+  if (dow === 1 || dow === 3) {
+    const f = FORMACION[dow];
+    const cuerpo = dow === 1
+      ? `<p class="small">${esc(f.detalle)}</p>`
+      : `<p class="small">Sesión de la <b>${esc(fase.nombre)}</b> (${esc(fase.cuando)}).</p><p class="small muted">Criterio de paso: ${esc(fase.paso)}</p>`;
+    h += tarjetaDia(iso, 'formacion', f.nombre, f.hora, cuerpo, reg);
+  }
+  if (dow === 6) {
+    h += tarjetaDia(iso, 'planificacion', 'Planificación de la semana', PLANIFICACION.hora,
+      `<ol class="pts">${PLANIFICACION.puntos.map((t) => `<li>${esc(t)}</li>`).join('')}</ol>
+       <button class="btn sec block" data-tab="semana" style="margin-top:8px">Ir a candidatas de la semana →</button>`, reg);
+  }
+  if (dow === 5) h += `<div class="card"><h3>Sábado</h3><p class="small">Sin rutina de trading. Las posiciones abiertas se mantienen según plan: el stop ya lleva el riesgo.</p></div>`;
+
+  const reglas = reg.reglas || '';
+  h += `<div class="card"><h3>Reglas cumplidas hoy</h3>
+    ${seg('reglas', reglas, [{ v: 'sí', n: 'Sí', cls: 'si' }, { v: 'no', n: 'No', cls: 'no' }])}
+    ${reglas === 'no' ? campo('¿Qué regla?', inp('reg', 'reglaIncumplida', reg.reglaIncumplida, 'Ej.: cuarta posición abierta')) : ''}
+    <h3>Freno</h3>
+    ${seg('freno', reg.freno || '', [{ v: '', n: 'Ninguno' }, { v: 'diario', n: 'Diario', cls: 'no' }, { v: 'semanal', n: 'Semanal', cls: 'no' }])}
+    ${reg.freno ? `<div class="notice" style="margin:10px 0 0">${esc(FRENOS[reg.freno])}</div>` : ''}
+    ${campo('Nota del día', inp('reg', 'notas', reg.notas, 'Una línea'))}</div>`;
+  return h;
+}
+
+// --- Pestaña Diario (operaciones) -------------------------------------------
+function filaOp(o) {
+  const r = num(o.resultadoR), cl = checklistOK(o);
+  return `<button class="oprow" data-act="abrirOp" data-uid="${o.uid}">
+    <span class="t"><span>${esc(o.activo || 'sin activo')} · ${esc(o.direccion || '')}</span>
+      <span class="${r === '' ? 'muted' : r >= 0 ? 'pos' : 'neg'}">${r === '' ? 'abierta' : fmt(r, 2) + ' R'}</span></span>
+    <span class="s">${esc(o.fechaApertura || '')} · ${esc(o.tipo || '')}${o.cuentas && o.cuentas.length ? ' · ' + esc(o.cuentas.join(', ')) : ''}
+      ${cl ? '' : '<span class="tag warn">checklist incompleta</span>'}
+      ${o.dentroReglas === 'no' ? '<span class="tag bad">fuera de reglas</span>' : ''}
+      ${o.id != null ? `<span class="tag plain">#${o.id}</span>` : '<span class="tag warn">sin enviar</span>'}</span></button>`;
+}
+function viewDiario() {
+  if (state.form) return viewOperacion();
+  const ops = state.operaciones.slice().sort((a, b) => String(b.fechaApertura || '').localeCompare(String(a.fechaApertura || '')));
+  const abiertas = ops.filter((o) => !cerrada(o)), cerradas = ops.filter(cerrada);
+  const rs = cerradas.map((o) => num(o.resultadoR)).filter((x) => x !== '');
+  const total = rs.reduce((a, b) => a + b, 0);
+  const conReglas = ops.filter((o) => o.dentroReglas === 'sí' || o.dentroReglas === 'no');
+  const pct = conReglas.length ? Math.round(100 * conReglas.filter((o) => o.dentroReglas === 'sí').length / conReglas.length) : null;
+  let h = `<button class="btn block" data-act="nuevaOp">＋ Nueva operación</button>`;
+  h += `<div class="stats" style="margin-top:12px">
+    <div class="stat ${total >= 0 ? 'good' : 'bad'}"><div class="l">Resultado</div><div class="v">${rs.length ? fmt(total, 2) + ' R' : '—'}</div>
+      <div class="muted small">${cerradas.length} cerrada(s) · ${abiertas.length} abierta(s)</div></div>
+    <div class="stat ${pct == null ? '' : pct >= 100 ? 'good' : 'bad'}"><div class="l">Dentro de reglas</div><div class="v">${pct == null ? '—' : pct + ' %'}</div>
+      <div class="muted small">${pct == null ? 'sin operaciones valoradas' : conReglas.length + ' valorada(s) · objetivo 100 %'}</div></div></div>`;
+  h += `<div class="card"><h3>Abiertas</h3>${abiertas.length ? abiertas.map(filaOp).join('') : '<p class="vacio">Ninguna posición abierta.</p>'}</div>`;
+  h += `<div class="card"><h3>Cerradas</h3>${cerradas.length ? cerradas.slice(0, 40).map(filaOp).join('') : '<p class="vacio">Todavía no hay operaciones cerradas.</p>'}
+    ${cerradas.length > 40 ? `<p class="muted small">Se muestran las 40 más recientes. El histórico completo está en la hoja.</p>` : ''}</div>`;
+  return h;
+}
+function viewOperacion() {
+  const o = state.form, r = ratioDe(o), cl = checklistOK(o);
+  let h = `<div class="row" style="margin-bottom:10px"><button class="btn ghost" data-act="cerrarOp">‹ Diario</button>
+    <span class="muted small">${o.id != null ? 'Fila ' + (o.id + 1) + ' de la hoja (id ' + o.id + ')' : 'Todavía no está en la hoja'}</span></div>`;
+  h += `<div class="card"><h3>Apertura</h3>
+    <div class="f2">${campo('Fecha de apertura', inpFecha('form', 'fechaApertura', o.fechaApertura))}
+      ${campo('Riesgo %', inpNum('form', 'riesgo', o.riesgo, '1'))}</div>
+    ${campo('Tipo', seg('opTipo', o.tipo, ['swing', 'scalping']))}
+    ${campo('Activo', `<input type="text" list="activos" data-o="form" data-f="activo" value="${esc(o.activo)}" placeholder="XAUUSD" autocapitalize="characters" autocomplete="off">
+      <datalist id="activos">${ACTIVOS.map((a) => `<option value="${a}">`).join('')}</datalist>`)}
+    ${campo('Dirección', seg('opDir', o.direccion, ['largo', 'corto']))}
+    ${campo('Cuentas', `<div class="chips">${CUENTAS.map((c) => `<button class="${(o.cuentas || []).includes(c) ? 'on' : ''}" data-act="opCuenta" data-v="${esc(c)}">${esc(c)}</button>`).join('')}</div>`)}
+    <div class="f3">${campo('Entrada', inpNum('form', 'entrada', o.entrada, '0'))}
+      ${campo('Stop', inpNum('form', 'stop', o.stop, '0'))}
+      ${campo('TP1', inpNum('form', 'tp1', o.tp1, '0'))}</div>
+    <p style="margin-top:10px" id="ratioOp">${tagRatio(r)}</p></div>`;
+  h += `<div class="card"><h3>Checklist de entrada · las cinco a la vez</h3>
+    ${CHECKLIST_ENTRADA.map((c) => clItem(c.id, c.corto, c.texto, !!o[c.id], 'opCheck')).join('')}
+    <div class="msg ${cl ? 'ok' : 'err'}" style="margin-top:12px">${cl ? 'Checklist completa.' : 'Checklist incompleta: según el plan no se abre.'}</div></div>`;
+  h += `<div class="card"><h3>Gestión</h3>
+    ${ta('form', 'gestion', o.gestion, 'Una línea por acción, con fecha')}
+    <button class="btn sec block" data-act="opLinea" style="margin-top:8px">＋ Línea con la fecha de hoy</button>
+    <details style="margin-top:10px"><summary class="small">Checklist de gestión</summary>
+      <ol class="pts">${CHECKLIST_GESTION.map((t) => `<li>${esc(t)}</li>`).join('')}</ol></details></div>`;
+  h += `<div class="card"><h3>Cierre</h3>
+    <div class="f2">${campo('Fecha de cierre', inpFecha('form', 'fechaCierre', o.fechaCierre))}
+      ${campo('Resultado (R)', inpNum('form', 'resultadoR', o.resultadoR, '2,5'))}</div>
+    ${campo('Dentro de reglas', seg('opReglas', o.dentroReglas || '', [{ v: 'sí', n: 'Sí', cls: 'si' }, { v: 'no', n: 'No', cls: 'no' }]))}
+    ${o.dentroReglas === 'no' ? campo('Motivo', inp('form', 'motivo', o.motivo, 'Qué regla y por qué')) : ''}
+    ${campo('Aprendizaje', inp('form', 'aprendizaje', o.aprendizaje, 'Una línea'))}</div>`;
+  h += `<button class="btn block" data-act="guardarOp">Guardar</button>`;
+  if (o.id == null && state.operaciones.some((x) => x.uid === o.uid)) {
+    h += state.borrar === o.uid
+      ? `<div class="confirm">Se quita solo de la app. Si ya se había enviado, la fila sigue en la hoja.<div class="row"><button class="btn danger" data-act="opQuitarOk">Sí, quitar</button><button class="btn ghost" data-act="opQuitarNo">Cancelar</button></div></div>`
+      : `<button class="btn ghost block" data-act="opQuitar" style="margin-top:8px">Quitar de la app</button>`;
+  }
+  return h;
+}
+
+// --- Pestaña Semana (candidatas, estado semanal y cuentas) ------------------
+function ratioCand(c) {
+  const z = num(c.zona), s = num(c.stop), t = num(c.tp1);
+  if (z === '' || s === '' || t === '' || z === s) return null;
+  return Math.abs(t - z) / Math.abs(z - s);
+}
+function viewSemana() {
+  const w = semanaSel(), dom = domingoDeSemana(w), isoDom = fechaISO(dom);
+  if (!borradores.cand) borradores.cand = { activo: '', direccion: 'largo', zona: '', stop: '', tp1: '', estado: 'pendiente', notas: '' };
+  if (!borradores.est) borradores.est = { cuenta: CUENTAS[0], balance: '', drawdown: '', diasRentables: '', proximoRetiro: '', progreso: '', notas: '' };
+  const cs = state.candidatas.filter((c) => c.fecha === isoDom);
+  const b = borradores.cand, rb = ratioCand(b);
+
+  let h = `<div class="weekpick">
+    <button class="btn sec" data-act="sem" data-d="-1" ${w <= 1 ? 'disabled' : ''} aria-label="Semana anterior">‹</button>
+    <div class="lbl">Semana ${w}<div class="muted small" style="font-weight:400">planificada el domingo ${esc(fechaCorta(dom))}</div></div>
+    <button class="btn sec" data-act="sem" data-d="1" ${w >= ULTIMA_SEMANA ? 'disabled' : ''} aria-label="Semana siguiente">›</button></div>`;
+  if (w !== semanaPlan(hoy())) h += `<button class="btn ghost block" data-act="semHoy" style="margin-bottom:10px">Volver a la semana en curso</button>`;
+
+  h += `<div class="card"><h3>Candidatas · ${cs.length}</h3>`;
+  h += cs.length ? cs.map((c) => {
+    const r = ratioCand(c);
+    return `<div style="border-top:1px solid var(--line);padding:10px 0">
+      <div class="row"><div><b>${esc(c.activo || 'sin activo')}</b> · ${esc(c.direccion || '')}
+        ${c.fila == null ? '<span class="tag warn">sin enviar</span>' : ''}</div>
+        <div class="small">${r == null ? '' : (r >= RATIO_MINIMO ? '<span class="pos">1:' + fmt(r, 2) + '</span>' : '<span class="neg">1:' + fmt(r, 2) + '</span>')}</div></div>
+      <div class="muted small">Zona ${esc(c.zona)} · stop ${esc(c.stop)} · TP1 ${esc(c.tp1)}${c.notas ? ' · ' + esc(c.notas) : ''}</div>
+      <div class="chips">${ESTADOS_CANDIDATA.map((e) => `<button class="${c.estado === e ? 'on' : ''}" data-act="candEstado" data-uid="${c.uid}" data-v="${esc(e)}">${esc(e)}</button>`).join('')}</div>
+    </div>`;
+  }).join('') : '<p class="vacio">Ninguna candidata para esta semana. Se marcan el domingo, en la planificación.</p>';
+  h += `</div>`;
+
+  h += `<div class="card"><h3>Añadir candidata</h3>
+    ${campo('Activo', `<input type="text" list="activos2" data-o="cand" data-f="activo" value="${esc(b.activo)}" placeholder="XAUUSD" autocapitalize="characters" autocomplete="off">
+      <datalist id="activos2">${ACTIVOS.map((a) => `<option value="${a}">`).join('')}</datalist>`)}
+    ${campo('Dirección', seg('candDir', b.direccion, ['largo', 'corto']))}
+    <div class="f3">${campo('Zona', inpNum('cand', 'zona', b.zona, '0'))}
+      ${campo('Stop', inpNum('cand', 'stop', b.stop, '0'))}
+      ${campo('TP1', inpNum('cand', 'tp1', b.tp1, '0'))}</div>
+    <p style="margin-top:10px" id="ratioCand">${tagRatio(rb)}</p>
+    ${campo('Notas', inp('cand', 'notas', b.notas, 'Zona repetida en 3 temporalidades…'))}
+    <button class="btn block" data-act="addCand" style="margin-top:12px">Añadir a la semana ${w}</button></div>`;
+
+  const e = borradores.est;
+  h += `<div class="card"><h3>Estado semanal por cuenta</h3>
+    ${campo('Cuenta', `<select data-o="est" data-f="cuenta">${CUENTAS.map((c) => `<option value="${esc(c)}" ${e.cuenta === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>`)}
+    <div class="f2">${campo('Balance', inpNum('est', 'balance', e.balance, '52.300'))}
+      ${campo('Drawdown usado (%)', inpNum('est', 'drawdown', e.drawdown, '1,2'))}</div>
+    <div class="f2">${campo('Días rentables', inpNum('est', 'diasRentables', e.diasRentables, '3'))}
+      ${campo('Progreso objetivo (%)', inpNum('est', 'progreso', e.progreso, '52'))}</div>
+    ${campo('Próximo retiro', inpFecha('est', 'proximoRetiro', e.proximoRetiro))}
+    ${campo('Notas', inp('est', 'notas', e.notas, ''))}
+    <button class="btn block" data-act="addEst" style="margin-top:12px">Guardar estado del domingo ${esc(fechaCorta(dom))}</button>
+    ${state.estadoSemanal.length ? `<details style="margin-top:10px"><summary class="small">Últimos guardados</summary>
+      <div class="tablewrap"><table><tr><th>Fecha</th><th>Cuenta</th><th>Balance</th><th>DD %</th></tr>
+      ${state.estadoSemanal.slice(0, 12).map((x) => `<tr><td>${esc(x.fecha)}</td><td>${esc(x.cuenta)}</td><td>${esc(x.balance)}</td><td>${esc(x.drawdown)}</td></tr>`).join('')}
+      </table></div></details>` : ''}</div>`;
+
+  h += `<div class="card"><h3>Cuentas</h3><p class="small muted">Solo lectura: se leen de la hoja Cuentas.</p>`;
+  if (state.cuentas.length) {
+    h += `<div class="tablewrap"><table><tr><th>Cuenta</th><th>Fase</th><th>Objetivo</th><th>P. diaria</th><th>P. máxima</th></tr>
+      ${state.cuentas.map((c) => `<tr><td class="b">${esc(c.cuenta)}</td><td>${esc(c.fase)}</td><td>${esc(c.objetivo)}</td><td>${esc(c.perdidaDiaria)}</td><td>${esc(c.perdidaMaxima)}</td></tr>`).join('')}</table></div>`;
+  } else {
+    h += `<p class="vacio">Todavía no se han traído de la hoja.</p><button class="btn sec block" data-act="traerCuentas">Traer cuentas de la hoja</button>`;
+  }
+  h += `</div>`;
+  return h;
+}
+
+// --- Pestaña Plan -----------------------------------------------------------
+function resumenBacktest() {
+  const xs = state.backtest, rs = xs.map((x) => num(x.resultadoR)).filter((v) => v !== '');
+  const total = rs.reduce((a, b) => a + b, 0);
+  let racha = 0, peor = 0;
+  xs.slice().reverse().forEach((x) => { const r = num(x.resultadoR); if (r !== '' && r < 0) { racha++; peor = Math.max(peor, racha); } else if (r !== '') racha = 0; });
+  const ok = xs.filter((x) => x.checklist === 'sí').length;
+  return { n: xs.length, total, media: rs.length ? total / rs.length : null, peor, ok };
+}
+function viewPlan() {
+  const fase = faseActual(), b = borradores.bt || (borradores.bt = { estrategia: 'scalping', activo: 'XAUUSD', direccion: 'largo', checklist: 'sí', resultadoR: '', notas: '', fecha: fechaISO(hoy()) });
+  const rb = resumenBacktest();
+  let h = `<div class="card"><h3>Fases del scalping</h3>
+    ${FASES.map((f) => `<div class="fase ${f.n === fase.n ? 'on' : ''}">
+      <div class="row"><b>${esc(f.nombre)}</b><span class="muted small">${esc(f.cuando)}</span></div>
+      <div class="small">${esc(f.tarea)}</div>
+      ${f.paso ? `<div class="muted small">Paso: ${esc(f.paso)}</div>` : ''}</div>`).join('')}
+    <p class="small muted" style="margin-top:10px">La fase activa se cambia en Ajustes y se escribe en la hoja al marcar cada día.</p></div>`;
+
+  h += `<div class="card"><h3>Backtest</h3>
+    <div class="stats" style="margin-bottom:10px">
+      <div class="stat"><div class="l">Casos</div><div class="v">${rb.n}</div><div class="muted small">${rb.ok} con checklist</div></div>
+      <div class="stat ${rb.total >= 0 ? 'good' : 'bad'}"><div class="l">Resultado</div><div class="v">${rb.n ? fmt(rb.total, 2) + ' R' : '—'}</div>
+        <div class="muted small">${rb.media == null ? 'sin casos' : 'media ' + fmt(rb.media, 2) + ' R · peor racha ' + rb.peor}</div></div></div>
+    <div class="f2">${campo('Fecha del caso', inpFecha('bt', 'fecha', b.fecha))}
+      ${campo('Resultado (R)', inpNum('bt', 'resultadoR', b.resultadoR, '-1'))}</div>
+    ${campo('Estrategia', seg('btEstr', b.estrategia, ['swing', 'scalping']))}
+    <div class="f2">${campo('Activo', inp('bt', 'activo', b.activo, 'XAUUSD', 'text', 'autocapitalize="characters" autocomplete="off"'))}
+      ${campo('Dirección', `<select data-o="bt" data-f="direccion"><option value="largo" ${b.direccion === 'largo' ? 'selected' : ''}>largo</option><option value="corto" ${b.direccion === 'corto' ? 'selected' : ''}>corto</option></select>`)}</div>
+    ${campo('Checklist OK', seg('btCheck', b.checklist, [{ v: 'sí', n: 'Sí', cls: 'si' }, { v: 'no', n: 'No', cls: 'no' }]))}
+    ${campo('Notas', inp('bt', 'notas', b.notas, ''))}
+    <button class="btn block" data-act="addBt" style="margin-top:12px">Añadir caso</button>
+    <p class="small muted" style="margin-top:8px">Criterio de la fase 1: 100 casos con esperanza positiva descontando costes y no más de 8 pérdidas seguidas.</p></div>`;
+
+  h += `<div class="card"><h3>Referencia</h3>
+    <details><summary>Checklist de entrada</summary><ol class="pts">${CHECKLIST_ENTRADA.map((c) => `<li><b>${esc(c.corto)}.</b> ${esc(c.texto)}</li>`).join('')}</ol></details>
+    <details><summary>Checklist de gestión</summary><ol class="pts">${CHECKLIST_GESTION.map((t) => `<li>${esc(t)}</li>`).join('')}</ol></details>
+    <details><summary>Reglas de riesgo</summary><ul class="plain small">${REGLAS_RIESGO.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></details>
+    <details><summary>Estrategia swing "HeatMap + Pivots"</summary>
+      <p class="small"><b>Universo.</b> ${esc(ESTRATEGIA.universo)}</p>
+      <p class="small"><b>Temporalidad.</b> ${esc(ESTRATEGIA.temporalidad)}</p>
+      <p class="small"><b>Duración.</b> ${esc(ESTRATEGIA.duracion)}</p>
+      <p class="small"><b>Stop.</b> ${esc(ESTRATEGIA.stop)}</p>
+      <p class="small"><b>Objetivos.</b> ${esc(ESTRATEGIA.objetivos)}</p></details>
+    <details><summary>Lo que no se hace</summary><ol class="pts">${NO_SE_HACE.map((t) => `<li>${esc(t)}</li>`).join('')}</ol></details>
+    <details><summary>Objetivos del curso</summary><ul class="plain small">${OBJETIVOS.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></details></div>`;
+  return h;
+}
+
+// --- Pestaña Ajustes --------------------------------------------------------
+function viewAjustes() {
+  const a = state.ajustes, m = sync.msgAjustes, mc = sync.msgCopia, imp = sync.importPendiente;
+  let h = `<div class="card"><h2>Hoja "Registro Trading 26-27"</h2>
+    <p class="small muted">Sigue <b>apps-script/INSTALAR.md</b> del repositorio para crear el script. La URL y el token se guardan solo en este móvil, no en el código.</p>
+    <div class="field"><label for="cfgUrl">URL del Apps Script (termina en /exec)</label>
+      <input type="url" id="cfgUrl" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(a.url)}" placeholder="https://script.google.com/macros/s/…/exec"></div>
+    <div class="field"><label for="cfgToken">Token</label>
+      <input type="text" id="cfgToken" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(a.token)}" placeholder="El valor de la propiedad TOKEN del script"></div>
+    <div class="row" style="margin-top:12px"><button class="btn" data-act="cfgProbar">Probar conexión</button>
+      <button class="btn sec" data-act="recuperar">Recuperar de la hoja</button></div>
+    ${m ? `<div class="msg ${m.err ? 'err' : ''}">${esc(m.texto)}</div>` : ''}
+    <p class="small muted" style="margin-top:12px"><span id="colaInfo">${esc(textoCola())}</span>
+      <button class="btn ghost" data-act="sync" style="min-height:32px;padding:4px 8px">Reintentar envío</button></p></div>`;
+  h += `<div class="card"><h2>Fase actual de scalping</h2>
+    <p class="small muted">Se escribe en la columna "Fase scalping" al marcar cada día.</p>
+    <div class="field"><select id="cfgFase">${FASES.map((f) => `<option value="${f.n}" ${a.fase === f.n ? 'selected' : ''}>${esc(f.nombre)} · ${esc(f.cuando)}</option>`).join('')}</select></div>
+    <p class="small">${esc(faseActual().tarea)}</p></div>`;
+  h += `<div class="card"><h2>Copia de seguridad</h2>
+    <p class="small muted">Incluye todo lo guardado en este móvil: días marcados, operaciones, candidatas, estado semanal, backtest, cola pendiente, URL y token.</p>
+    <div class="row" style="margin-top:8px"><button class="btn" data-act="exportar">Descargar copia de seguridad</button>
+      <label class="btn sec" for="importFile">Restaurar copia</label><input type="file" id="importFile" accept="application/json,.json" hidden></div>
+    ${imp ? `<div class="confirm">Restaurar la copia del ${esc(imp.fecha)} (${imp.n} apartados). Se sustituirán los datos actuales de este móvil.
+      <div class="row"><button class="btn" data-act="importOk">Sí, restaurar</button><button class="btn ghost" data-act="importNo">Cancelar</button></div></div>` : ''}
+    ${mc ? `<div class="msg ${mc.err ? 'err' : ''}">${esc(mc.texto)}</div>` : ''}</div>`;
+  h += `<div class="card"><details><summary>Instalar la app en el móvil</summary>
+    <p class="small"><b>iPhone:</b> abre esta página en Safari, toca <b>Compartir</b> y elige <b>Añadir a pantalla de inicio</b>.</p>
+    <p class="small"><b>Android:</b> en Chrome, menú ⋮ y <b>Instalar aplicación</b>.</p>
+    <p class="small muted">Una vez instalada funciona sin conexión: lo que marques se queda en la cola y se envía cuando haya internet.</p></details></div>`;
+  return h;
+}
+
+// --- Pintado ----------------------------------------------------------------
+let vistaAnterior = '';
+function render() {
+  const d = hoy(), w = semanaCurso(d);
+  $('#pill').textContent = (w < 1 ? 'Pretemporada' : 'S' + w) + ' · fase ' + state.ajustes.fase;
+  $('#view').innerHTML = { hoy: viewHoy, diario: viewDiario, semana: viewSemana, plan: viewPlan, ajustes: viewAjustes }[state.tab]();
+  $('#tabbar').innerHTML = TABS.map((t) => `<button class="${t.id === state.tab ? 'on' : ''}" data-tab="${t.id}" aria-label="${t.n}"><span class="ic">${t.ic}</span>${t.n}</button>`).join('');
+  const clave = state.tab + ':' + (state.form ? state.form.uid : '');
+  if (clave !== vistaAnterior) window.scrollTo(0, 0);
+  vistaAnterior = clave;
+  guardar();
+}
+function guardarForm() { LS.set('form', state.form); }
+
+// --- Eventos ----------------------------------------------------------------
+$('#tabbar').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tab]'); if (!b) return;
+  if (b.dataset.tab === 'diario' && state.tab === 'diario') { state.form = null; guardarForm(); }
+  state.tab = b.dataset.tab; state.borrar = null; render();
+});
+
+$('#view').addEventListener('click', (e) => {
+  const el = e.target.closest('[data-act],[data-tab]'); if (!el) return;
+  if (el.dataset.tab) { state.tab = el.dataset.tab; render(); return; }
+  const iso = fechaISO(fechaTab()), reg = regDe(iso), v = el.dataset.v;
+  switch (el.dataset.act) {
+    // Hoy
+    case 'dia': state.offset = Math.min(0, Math.max(-DIAS_ATRAS, state.offset + parseInt(el.dataset.d, 10))); render(); break;
+    case 'diaHoy': state.offset = 0; render(); break;
+    case 'marcar': {
+      const k = el.dataset.key, f = el.dataset.fecha, nuevo = !regDe(f)[k];
+      guardarRegistro(f, { [k]: nuevo }); render(); encolarDia(f, { [k]: nuevo }); break;
+    }
+    case 'reglas': {
+      const nuevo = reg.reglas === v ? '' : v;
+      guardarRegistro(iso, { reglas: nuevo }); render();
+      encolarDia(iso, { reglas: nuevo, reglaIncumplida: nuevo === 'no' ? (reg.reglaIncumplida || '') : '' }); break;
+    }
+    case 'freno': {
+      const nuevo = reg.freno === v ? '' : v;
+      guardarRegistro(iso, { freno: nuevo }); render(); encolarDia(iso, { freno: nuevo }); break;
+    }
+    // Diario
+    case 'nuevaOp': state.form = opNueva(iso); guardarForm(); state.tab = 'diario'; render(); break;
+    case 'abrirOp': {
+      const o = state.operaciones.find((x) => x.uid === el.dataset.uid);
+      if (o) { state.form = JSON.parse(JSON.stringify(o)); guardarForm(); render(); } break;
+    }
+    case 'cerrarOp': state.form = null; state.borrar = null; guardarForm(); render(); break;
+    case 'opTipo': state.form.tipo = v; guardarForm(); render(); break;
+    case 'opDir': state.form.direccion = v; guardarForm(); render(); break;
+    case 'opReglas': state.form.dentroReglas = state.form.dentroReglas === v ? '' : v; guardarForm(); render(); break;
+    case 'opCheck': { const id = el.dataset.id; state.form[id] = !state.form[id]; guardarForm(); render(); break; }
+    case 'opCuenta': {
+      const cs = state.form.cuentas || [];
+      state.form.cuentas = cs.includes(v) ? cs.filter((x) => x !== v) : cs.concat([v]);
+      guardarForm(); render(); break;
+    }
+    case 'opLinea': {
+      const g = state.form.gestion || '';
+      state.form.gestion = (g && !g.endsWith('\n') ? g + '\n' : g) + fechaISO(hoy()) + ': ';
+      guardarForm(); render();
+      const t = $('textarea[data-f="gestion"]'); if (t) { t.focus(); t.selectionStart = t.selectionEnd = t.value.length; }
+      break;
+    }
+    case 'guardarOp': {
+      const o = state.form;
+      if (!String(o.activo || '').trim()) { alert('Falta el activo.'); break; }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(o.fechaApertura || '')) { alert('Falta la fecha de apertura.'); break; }
+      o.activo = o.activo.trim();
+      guardarOperacion(JSON.parse(JSON.stringify(o)));
+      state.form = null; state.borrar = null; guardarForm(); render(); break;
+    }
+    case 'opQuitar': state.borrar = state.form.uid; render(); break;
+    case 'opQuitarNo': state.borrar = null; render(); break;
+    case 'opQuitarOk': {
+      const u = state.form.uid;
+      state.operaciones = state.operaciones.filter((x) => x.uid !== u); LS.set('operaciones', state.operaciones);
+      state.cola = state.cola.filter((c) => c.k !== 'op:' + u); LS.set('cola', state.cola);
+      state.form = null; state.borrar = null; guardarForm(); render(); break;
+    }
+    // Semana
+    case 'sem': state.semanaSel = Math.min(ULTIMA_SEMANA, Math.max(1, semanaSel() + parseInt(el.dataset.d, 10))); render(); break;
+    case 'semHoy': state.semanaSel = null; render(); break;
+    case 'candDir': borradores.cand.direccion = v; render(); break;
+    case 'addCand': {
+      const b = borradores.cand;
+      if (!String(b.activo || '').trim()) { alert('Falta el activo.'); break; }
+      guardarCandidata(Object.assign({ uid: uid(), fecha: fechaISO(domingoDeSemana(semanaSel())) }, b, { activo: b.activo.trim() }));
+      borradores.cand = null; render(); break;
+    }
+    case 'candEstado': {
+      const c = state.candidatas.find((x) => x.uid === el.dataset.uid);
+      if (c) { c.estado = v; guardarCandidata(c); render(); } break;
+    }
+    case 'addEst': {
+      const b = borradores.est;
+      guardarEstadoSemanal(Object.assign({ uid: uid(), fecha: fechaISO(domingoDeSemana(semanaSel())) }, b));
+      borradores.est = null; render(); break;
+    }
+    case 'traerCuentas': probarConexion(); break;
+    // Plan
+    case 'btEstr': borradores.bt.estrategia = v; render(); break;
+    case 'btCheck': borradores.bt.checklist = v; render(); break;
+    case 'addBt': {
+      const b = borradores.bt;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(b.fecha || '')) { alert('Falta la fecha del caso.'); break; }
+      guardarBacktest(Object.assign({ uid: uid() }, b));
+      borradores.bt = null; render(); break;
+    }
+    // Ajustes y sincronización
+    case 'sync': if (!configurado()) { state.tab = 'ajustes'; render(); } else { if (!state.cola.length) sync.error = ''; sincronizar(); } break;
+    case 'cfgProbar': probarConexion(); break;
+    case 'recuperar': recuperarDeLaHoja(); break;
+    case 'exportar': descargarCopia(); break;
+    case 'importOk': aplicarImportacion(); break;
+    case 'importNo': sync.importPendiente = null; render(); break;
+  }
+});
+
+// Escribir en un campo no repinta la vista: solo actualiza el estado y los ratios.
+function alEscribir(t) {
+  const o = t.dataset.o, f = t.dataset.f;
+  if (o && f) {
+    if (o === 'form' && state.form) {
+      state.form[f] = t.value; guardarForm();
+      const r = $('#ratioOp'); if (r) r.innerHTML = tagRatio(ratioDe(state.form));
+    } else if (o === 'reg') {
+      guardarRegistro(fechaISO(fechaTab()), { [f]: t.value });
+    } else if (borradores[o]) {
+      borradores[o][f] = t.value;
+      const r = $('#ratioCand'); if (o === 'cand' && r) r.innerHTML = tagRatio(ratioCand(borradores.cand));
+    }
+    return true;
+  }
+  if (t.id === 'cfgUrl' || t.id === 'cfgToken') {
+    state.ajustes[t.id === 'cfgUrl' ? 'url' : 'token'] = t.value.trim(); LS.set('ajustes', state.ajustes); pintarSync(); return true;
+  }
+  return false;
+}
+$('#view').addEventListener('input', (e) => { alEscribir(e.target); });
+$('#view').addEventListener('change', (e) => {
+  const t = e.target;
+  if (t.id === 'cfgFase') { state.ajustes.fase = parseInt(t.value, 10) || 0; LS.set('ajustes', state.ajustes); render(); return; }
+  if (t.id === 'importFile') { leerCopia(t.files && t.files[0]); t.value = ''; return; }
+  if (t.id === 'cfgUrl' || t.id === 'cfgToken') { sync.error = ''; sync.msgAjustes = null; sincronizar(); return; }
+  alEscribir(t);
+  // Al salir de un campo del día, el cambio se encola.
+  if (t.dataset.o === 'reg') encolarDia(fechaISO(fechaTab()), { [t.dataset.f]: t.value });
+});
+$('#view').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.matches('input[data-o="reg"]')) { e.preventDefault(); e.target.blur(); }
+});
+
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { render(); sincronizar(); } });
+window.addEventListener('online', () => sincronizar());
+
+render();
+sincronizar();
+
+// --- PWA: service worker (solo bajo http/https, no con file://) -------------
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => {}); });
+}
+</script>
+</body>
+</html>
