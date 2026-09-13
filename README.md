@@ -15,9 +15,11 @@ curso 2026-2027, sincronizada con una hoja de Google Sheets.
 
 **Hoy** (revisión de 7:30, sesión de Nueva York de 15:30, formación,
 planificación del domingo, reglas cumplidas, freno y nota del día) ·
-**Diario** (operaciones con la checklist de entrada, gestión y resultado en R) ·
-**Semana** (candidatas del domingo, estado semanal por cuenta, cuentas) ·
-**Plan** (fases de scalping, backtest y referencia) · **Ajustes**.
+**Operaciones** (abiertas con Gestionar y Cerrar, cerradas en R, formulario de
+entrada con la checklist, avisos de posiciones y de riesgo abierto por cuenta) ·
+**Candidatas** (lista del domingo por semana, convertir en operación, estado
+semanal por cuenta) · **Plan** (fases de scalping, backtest y referencia) ·
+**Ajustes**.
 
 ## Puesta en marcha
 

@@ -33,6 +33,7 @@
   }
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--text);
   font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -135,6 +136,41 @@ button.sync{background:none;color:var(--muted);padding:8px 0 0;min-height:0;bord
 .fase:first-of-type{border-top:0}
 .fase.on{background:var(--accent-soft);margin:0 -14px;padding:10px 14px;border-radius:10px;border-top:0}
 .sep{border-top:1px solid var(--line);margin:12px 0}
+body.enpantalla{padding-bottom:0}
+body.enpantalla nav.tabbar,body.enpantalla header.top{display:none}
+.pantalla{position:fixed;inset:0;z-index:30;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:calc(8px + env(safe-area-inset-top)) 14px 0}
+.pantalla .inner{max-width:640px;margin:0 auto;padding-bottom:16px}
+.phead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.phead h2{font-size:18px;margin:0;flex:1;text-align:center}
+.phead .btn{padding:6px 8px;min-height:40px;flex:none;min-width:72px}
+.barra{position:sticky;bottom:0;background:var(--bg);padding:10px 0 calc(10px + env(safe-area-inset-bottom));
+  border-top:1px solid var(--line);margin-top:8px}
+.barra .btn{width:100%;font-size:17px;padding:14px}
+.aviso{border-radius:10px;padding:8px 10px;font-size:14px;margin-top:8px;background:var(--warn-soft)}
+.aviso.rojo{background:var(--danger-soft);color:var(--text);font-weight:600}
+.aviso.info{background:var(--accent-soft)}
+.sw{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line);width:100%;background:none;
+  color:var(--text);border-radius:0;font-weight:400;text-align:left;justify-content:flex-start;min-height:0}
+.sw:first-of-type{border-top:0}
+.sw .tg{width:46px;height:28px;border-radius:999px;background:var(--line);flex:none;position:relative;transition:background .15s;margin-top:1px}
+.sw .tg::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:left .15s}
+.sw.on .tg{background:var(--ok)} .sw.on .tg::after{left:21px}
+.sw .tx{flex:1;min-width:0} .sw .tx b{display:block} .sw .tx span{font-size:14px;color:var(--muted)}
+.forzar{display:flex;gap:10px;align-items:center;margin-top:10px;font-weight:600;font-size:15px}
+.forzar input{width:24px;height:24px;accent-color:var(--danger);flex:none;margin:0}
+.opcard{border-top:1px solid var(--line);padding:12px 0}
+.opcard:first-of-type{border-top:0;padding-top:2px}
+.opcard .t{display:flex;justify-content:space-between;gap:8px;align-items:baseline;font-weight:700}
+.opcard .s{font-size:13px;color:var(--muted);margin-top:3px}
+.opcard .acc{display:flex;gap:8px;margin-top:10px}
+.opcard .acc .btn{flex:1;padding:8px;min-height:40px}
+.linkbtn{background:none;color:var(--text);padding:0;min-height:0;border-radius:0;font:inherit;font-weight:700;text-align:left}
+.rbar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:4px}
+.rbar span{display:block;height:100%;background:var(--ok)}
+.rbar.alto span{background:var(--danger)}
+.rcuenta{padding:8px 0;border-top:1px solid var(--line)} .rcuenta:first-of-type{border-top:0}
+textarea.corto{min-height:60px}
 @media (max-width:359px){ .f3{grid-template-columns:1fr 1fr} }
 </style>
 </head>
@@ -203,7 +239,7 @@ const PLANIFICACION = {
     'Revisión de la semana con el diario.',
     'Calendario económico.',
     'Recorrer la lista fija y la cartera de largo plazo buscando fin de ciclo y nueva zona repetida.',
-    'Marcar candidatas en TradingView con entrada, stop, TP1 y ratio, y escribirlas en la pestaña Semana.'
+    'Marcar candidatas en TradingView con entrada, stop, TP1 y ratio, y escribirlas en la pestaña Candidatas.'
   ]
 };
 
@@ -264,6 +300,34 @@ const CUENTAS = ['50K-A', '50K-B', '200K', '100K', 'Propia', 'Scalping'];
 const ACTIVOS = ['XAUUSD', 'BTCUSD', 'TSLA', 'NVDA', 'META'];
 const ESTADOS_CANDIDATA = ['pendiente', 'entrada', 'descartada', 'siguiente semana'];
 
+// Cuentas en las que se replica cada operación de swing (se cambia en Ajustes).
+// "Una decisión, cuatro ejecuciones": las dos 50K, la 200K y la propia.
+const CUENTAS_SWING_DEFECTO = ['50K-A', '50K-B', '200K', 'Propia'];
+const CUENTA_SCALPING = 'Scalping';
+
+// Riesgo por operación y límites (Reglas de riesgo de PLAN.md).
+const RIESGO = {
+  normal: 1,               // con una o dos posiciones abiertas
+  tercera: 0.75,           // a partir de la tercera
+  scalping: 0.5,           // cuenta de scalping: 0,25-0,5 %
+  maxPosiciones: 3,        // nunca cuatro
+  abiertoMax: 2.25,        // riesgo abierto por cuenta
+  abiertoChallenge: 3,     // en challenge
+  scalpingDia: 2           // máximo de operaciones de scalping al día
+};
+// Fase de cada cuenta si todavía no se ha traído la hoja Cuentas (columna Fase).
+const FASE_CUENTA_DEFECTO = { '50K-A': 'earning', '50K-B': 'earning', '200K': 'challenge', '100K': 'challenge', 'Propia': 'propia', 'Scalping': 'prevista' };
+// Cuentas con la regla de noticias: nada de abrir ni cerrar a mano en ±2 min.
+const CUENTAS_NOTICIAS = ['100K', '200K'];
+const AVISO_NOTICIAS = 'Cuentas de 100K-200K: ninguna apertura ni cierre manual en ±2 min de noticias de alto impacto. Anota las horas en la revisión de 7:30.';
+
+// Checklist de scalping: textos genéricos hasta que la estrategia esté escrita (se editan en Ajustes).
+const CHECKLIST_SCALPING_DEFECTO = ['Condición 1', 'Condición 2', 'Condición 3', 'Condición 4', 'Condición 5'];
+
+// Botones de "Gestionar": qué se hace y por qué (checklist de gestión).
+const ACCIONES_GESTION = ['cierre parcial', 'break even', 'stop movido', 'otra'];
+const MOTIVOS_GESTION = ['movimiento brusco a favor', 'va por 1:3 (operación grande)', 'noticia de alto impacto', 'cierre por calendario', 'exposición de fin de semana'];
+
 const OBJETIVOS = [
   'Aprobar la cuenta de 200K antes del 15-10-2026 y la de 100K antes del 15-12-2026. Si una fecha no llega, se aplaza; nunca se sube el tamaño.',
   '100 % de operaciones dentro de la checklist y las reglas de riesgo.',
@@ -311,32 +375,38 @@ function domingoDeSemana(w) { return sumarDias(parseISO(CURSO_INICIO), 7 * (w - 
 
 // --- Estado ----------------------------------------------------------------
 const TABS = [
-  { id: 'hoy', n: 'Hoy', ic: '📅' }, { id: 'diario', n: 'Diario', ic: '📈' },
-  { id: 'semana', n: 'Semana', ic: '🗓️' }, { id: 'plan', n: 'Plan', ic: '📋' },
+  { id: 'hoy', n: 'Hoy', ic: '📅' }, { id: 'operaciones', n: 'Operaciones', ic: '📈' },
+  { id: 'candidatas', n: 'Candidatas', ic: '🎯' }, { id: 'plan', n: 'Plan', ic: '📋' },
   { id: 'ajustes', n: 'Ajustes', ic: '⚙️' },
 ];
 const state = {
   tab: LS.get('tab', 'hoy'),
   offset: 0,                                  // 0 = hoy, -1 = ayer, -2 = anteayer
   registro: LS.get('registro', {}),           // { 'AAAA-MM-DD': {rev730, ny1530, formacion, planificacion, reglas, reglaIncumplida, freno, notas} }
-  operaciones: LS.get('operaciones', []),     // [{uid, id?, fechaApertura, …}]
-  candidatas: LS.get('candidatas', []),       // [{uid, fila?, fecha, …}]
+  operaciones: LS.get('operaciones', []),     // [{uid, id?, fechaApertura, …, be?}]
+  candidatas: LS.get('candidatas', []),       // [{uid, fila?, fecha, …, pasada?}]
   estadoSemanal: LS.get('estadoSemanal', []), // [{uid, fecha, cuenta, …}]
   backtest: LS.get('backtest', []),           // [{uid, fecha, estrategia, …}]
   cuentas: LS.get('cuentas', []),             // solo lectura, se trae de la hoja
-  cola: LS.get('cola', []),                   // [{k, accion, datos, uid}] pendientes de enviar
-  ajustes: LS.get('ajustes', { url: '', token: '', fase: 0 }),
-  form: LS.get('form', null),                 // operación abierta en el editor
-  semanaSel: null,                            // semana elegida en la pestaña Semana
-  borrar: null,                               // confirmación de "quitar de la app"
+  cola: LS.get('cola', []),                   // [{k, accion, datos, ref}] pendientes de enviar
+  ajustes: LS.get('ajustes', {}),
+  pantalla: LS.get('pantalla', null),         // formulario de pantalla completa abierto
+  semanaSel: null,                            // semana elegida en Candidatas
+  pasar: null,                                // pregunta del domingo: {fecha, uids}
 };
-if (!state.ajustes || typeof state.ajustes !== 'object') state.ajustes = { url: '', token: '', fase: 0 };
+if (!state.ajustes || typeof state.ajustes !== 'object') state.ajustes = {};
+const A0 = { url: '', token: '', fase: 0, cuentasSwing: CUENTAS_SWING_DEFECTO.slice(), checklistScalping: CHECKLIST_SCALPING_DEFECTO.slice() };
+Object.keys(A0).forEach((k) => { if (state.ajustes[k] === undefined) state.ajustes[k] = A0[k]; });
 if (!(state.ajustes.fase >= 0 && state.ajustes.fase <= 4)) state.ajustes.fase = 0;
+if (!Array.isArray(state.ajustes.cuentasSwing)) state.ajustes.cuentasSwing = CUENTAS_SWING_DEFECTO.slice();
+if (!Array.isArray(state.ajustes.checklistScalping) || state.ajustes.checklistScalping.length !== 5) state.ajustes.checklistScalping = CHECKLIST_SCALPING_DEFECTO.slice();
 ['operaciones', 'candidatas', 'estadoSemanal', 'backtest', 'cuentas', 'cola'].forEach((k) => { if (!Array.isArray(state[k])) state[k] = []; });
 if (!TABS.some((t) => t.id === state.tab)) state.tab = 'hoy';
-const borradores = { cand: null, est: null, bt: null };   // formularios de Semana y Plan (no se guardan)
+if (state.pantalla && !['op', 'gestion', 'cierre', 'cand'].includes(state.pantalla.tipo)) state.pantalla = null;
+const borradores = { est: null, bt: null };   // formularios en línea de Candidatas y Plan (no se guardan)
 
 function guardar() { LS.set('tab', state.tab); }
+function guardarPantalla() { LS.set('pantalla', state.pantalla); }
 function faseActual() { return FASES[state.ajustes.fase] || FASES[0]; }
 function fechaTab() { return sumarDias(hoy(), state.offset); }
 function regDe(iso) { return state.registro[iso] || {}; }
@@ -393,6 +463,7 @@ function prepararEnvio(item) {
 async function sincronizar() {
   if (sync.enCurso || !configurado() || !state.cola.length) { pintarSync(); return; }
   sync.enCurso = true; pintarSync();
+  let nuevosIds = false;   // si la hoja devuelve id o fila, las etiquetas "sin enviar" cambian
   try {
     while (state.cola.length) {
       const item = state.cola[0];
@@ -407,17 +478,18 @@ async function sincronizar() {
       }
       if (item.accion === 'operacion' && item.ref && j.id != null) {
         const op = state.operaciones.find((o) => o.uid === item.ref);
-        if (op && op.id == null) { op.id = j.id; LS.set('operaciones', state.operaciones); }
+        if (op && op.id == null) { op.id = j.id; LS.set('operaciones', state.operaciones); nuevosIds = true; }
       }
       if (item.accion === 'candidata' && item.ref && j.fila != null) {
         const c = state.candidatas.find((x) => x.uid === item.ref);
-        if (c && c.fila == null) { c.fila = j.fila; LS.set('candidatas', state.candidatas); }
+        if (c && c.fila == null) { c.fila = j.fila; LS.set('candidatas', state.candidatas); nuevosIds = true; }
       }
       state.cola.shift(); LS.set('cola', state.cola); sync.error = '';
     }
     sync.ultima = Date.now(); LS.set('syncUltima', sync.ultima);
   } catch (e) { sync.error = errorLegible(e); }
-  sync.enCurso = false; pintarSync();
+  sync.enCurso = false;
+  if (nuevosIds && !state.pantalla) render(); else pintarSync();
 }
 function estadoSync() {
   const n = state.cola.length, pend = n ? ` · ${n} pendiente${n > 1 ? 's' : ''}` : '';
@@ -437,18 +509,26 @@ function textoCola() { const n = state.cola.length; return n ? `${n} cambio${n >
 function pintarSync() { const el = $('#sync'); if (el) el.outerHTML = syncHTML(); const c = $('#colaInfo'); if (c) c.textContent = textoCola(); }
 
 // --- Operaciones, candidatas y demás registros ------------------------------
-function opNueva(iso) {
-  return { uid: uid(), fechaApertura: iso, tipo: 'swing', activo: '', direccion: 'largo', cuentas: [],
-    entrada: '', stop: '', tp1: '', riesgo: '', c1: false, c2: false, c3: false, c4: false, c5: false,
-    gestion: '', fechaCierre: '', resultadoR: '', dentroReglas: '', motivo: '', aprendizaje: '' };
-}
 function ratioDe(o) {
   const e = num(o.entrada), s = num(o.stop), t = num(o.tp1);
   if (e === '' || s === '' || t === '' || e === s) return null;
   return Math.abs(t - e) / Math.abs(e - s);
 }
-function checklistOK(o) { return CHECKLIST_ENTRADA.every((c) => !!o[c.id]); }
+function checklistOK(o) { return ['c1', 'c2', 'c3', 'c4', 'c5'].every((k) => !!o[k]); }
 function cerrada(o) { return String(o.fechaCierre || '') !== '' || num(o.resultadoR) !== ''; }
+function abiertas() { return state.operaciones.filter((o) => !cerrada(o)); }
+function textosChecklist(tipo) {
+  return tipo === 'scalping'
+    ? state.ajustes.checklistScalping.map((t, i) => ({ id: 'c' + (i + 1), corto: t || 'Condición ' + (i + 1), texto: '' }))
+    : CHECKLIST_ENTRADA;
+}
+function diasAbierta(o) { return Math.max(0, Math.round((hoy() - parseISO(o.fechaApertura)) / 86400000)); }
+// R a partir del precio de salida: (salida − entrada) / (entrada − stop). Vale para largos y cortos.
+function rDeSalida(o, salida) {
+  const e = num(o.entrada), s = num(o.stop), x = num(salida);
+  if (e === '' || s === '' || x === '' || e === s) return null;
+  return (x - e) / (e - s);
+}
 function payloadOp(o) {
   return { fechaApertura: o.fechaApertura || '', tipo: o.tipo || '', activo: o.activo || '', direccion: o.direccion || '',
     cuentas: (o.cuentas || []).join(', '), entrada: num(o.entrada), stop: num(o.stop), tp1: num(o.tp1), riesgo: num(o.riesgo),
@@ -456,11 +536,20 @@ function payloadOp(o) {
     fechaCierre: o.fechaCierre || '', resultadoR: num(o.resultadoR), dentroReglas: o.dentroReglas || '',
     motivo: o.motivo || '', aprendizaje: o.aprendizaje || '' };
 }
-function guardarOperacion(o) {
+// Guarda en local y encola. Sin "campos", manda la operación entera; con "campos", solo esos
+// (si la operación ya tiene id, la hoja actualiza su fila; si aún no se envió, se fusiona con el alta).
+function guardarOperacion(o, campos) {
   const i = state.operaciones.findIndex((x) => x.uid === o.uid);
   if (i >= 0) state.operaciones[i] = o; else state.operaciones.unshift(o);
   LS.set('operaciones', state.operaciones);
-  encolar('op:' + o.uid, 'operacion', payloadOp(o), o.uid);
+  const p = payloadOp(o), datos = {};
+  (campos || Object.keys(p)).forEach((k) => { datos[k] = p[k]; });
+  encolar('op:' + o.uid, 'operacion', datos, o.uid);
+}
+function ratioCand(c) {
+  const z = num(c.zona), s = num(c.stop), t = num(c.tp1);
+  if (z === '' || s === '' || t === '' || z === s) return null;
+  return Math.abs(t - z) / Math.abs(z - s);
 }
 function payloadCand(c) {
   return { fecha: c.fecha || '', activo: c.activo || '', direccion: c.direccion || '', zona: num(c.zona),
@@ -482,6 +571,74 @@ function guardarBacktest(x) {
   state.backtest.unshift(x); LS.set('backtest', state.backtest);
   encolar('bt:' + x.uid, 'backtest', { fecha: x.fecha || '', estrategia: x.estrategia || '', activo: x.activo || '',
     direccion: x.direccion || '', checklist: x.checklist || '', resultadoR: num(x.resultadoR), notas: x.notas || '' }, x.uid);
+}
+
+// --- Riesgo (solo informativo, calculado en local) --------------------------
+function faseCuenta(c) {
+  const f = state.cuentas.find((x) => String(x.cuenta).trim() === c);
+  return String((f && f.fase) || FASE_CUENTA_DEFECTO[c] || '').trim().toLowerCase();
+}
+function limiteCuenta(c) { return faseCuenta(c) === 'challenge' ? RIESGO.abiertoChallenge : RIESGO.abiertoMax; }
+// Posiciones abiertas de swing en una cuenta (una en break even sigue siendo posición).
+function posicionesCuenta(c, excluirUid) {
+  return abiertas().filter((o) => o.uid !== excluirUid && o.tipo !== 'scalping' && (o.cuentas || []).includes(c)).length;
+}
+// Riesgo abierto de una cuenta: suma del riesgo % de las abiertas que no están en break even.
+function riesgoCuenta(c, excluirUid) {
+  return abiertas().filter((o) => o.uid !== excluirUid && !o.be && (o.cuentas || []).includes(c))
+    .reduce((t, o) => t + (num(o.riesgo) || 0), 0);
+}
+function resumenRiesgo() {
+  const cuentas = CUENTAS.filter((c) => abiertas().some((o) => (o.cuentas || []).includes(c)));
+  return cuentas.map((c) => ({ cuenta: c, riesgo: riesgoCuenta(c), limite: limiteCuenta(c), posiciones: posicionesCuenta(c), fase: faseCuenta(c) }));
+}
+function hayNoticias() { return abiertas().some((o) => (o.cuentas || []).some((c) => CUENTAS_NOTICIAS.includes(c))); }
+// Riesgo que corresponde a una operación nueva según las posiciones que ya hay en sus cuentas.
+function riesgoPropuesto(o) {
+  if (o.tipo === 'scalping') return RIESGO.scalping;
+  const max = Math.max(0, ...(o.cuentas || []).map((c) => posicionesCuenta(c, o.uid)));
+  return max >= 2 ? RIESGO.tercera : RIESGO.normal;
+}
+// Estado de validación del formulario de operación: bloqueos y avisos.
+function validarOp(p) {
+  const o = p.o, nueva = !state.operaciones.some((x) => x.uid === o.uid);
+  const r = { duro: '', blandos: [], avisos: [] };
+  if (!String(o.activo || '').trim()) r.duro = 'Falta el activo.';
+  else if (!/^\d{4}-\d{2}-\d{2}$/.test(o.fechaApertura || '')) r.duro = 'Falta la fecha.';
+  else if (!(o.cuentas || []).length) r.duro = 'Elige al menos una cuenta.';
+  else if (num(o.entrada) === '' || num(o.stop) === '') r.duro = 'Faltan la entrada y el stop.';
+  else if (!(num(o.riesgo) > 0)) r.duro = 'Falta el riesgo %.';
+  if (nueva && o.tipo !== 'scalping') {
+    const llenas = (o.cuentas || []).filter((c) => posicionesCuenta(c, o.uid) >= RIESGO.maxPosiciones);
+    if (llenas.length) r.duro = `Máximo tres posiciones: ${llenas.join(', ')} ya tiene${llenas.length > 1 ? 'n' : ''} tres abiertas.`;
+    else {
+      const dos = (o.cuentas || []).filter((c) => posicionesCuenta(c, o.uid) === 2);
+      if (dos.length) {
+        const ch = dos.filter((c) => faseCuenta(c) === 'challenge');
+        r.avisos.push({ cls: '', t: `Tercera posición en ${dos.join(', ')}: riesgo 0,75 %.` + (ch.length ? ` En challenge (${ch.join(', ')}) el plan dice 1 % siempre.` : '') });
+      }
+    }
+    const d = diaSemana(parseISO(o.fechaApertura || fechaISO(hoy())));
+    if (d >= 4) r.avisos.push({ cls: '', t: d === 4 ? 'Viernes: solo gestión, sin aperturas.' : 'Fin de semana: nada de aperturas.' });
+  }
+  if (nueva && o.tipo === 'scalping') {
+    const hoyN = state.operaciones.filter((x) => x.tipo === 'scalping' && x.fechaApertura === o.fechaApertura && x.uid !== o.uid).length;
+    if (hoyN >= RIESGO.scalpingDia) r.avisos.push({ cls: 'rojo', t: `Ya hay ${hoyN} operaciones de scalping este día: el máximo es ${RIESGO.scalpingDia}.` });
+  }
+  const ratio = ratioDe(o);
+  if (nueva) {
+    if (ratio == null) { if (!r.duro) r.duro = 'Falta el TP1 para calcular el ratio.'; }
+    else if (ratio < RATIO_MINIMO) r.blandos.push(`ratio 1:${fmt(ratio, 2)} por debajo de 1:${RATIO_MINIMO}`);
+    if (!checklistOK(o)) r.blandos.push(`checklist incompleta (${['c1', 'c2', 'c3', 'c4', 'c5'].filter((k) => o[k]).length} de 5)`);
+  }
+  // Riesgo abierto resultante en cada cuenta (informativo)
+  (o.cuentas || []).forEach((c) => {
+    const tot = riesgoCuenta(c, o.uid) + (o.be ? 0 : (num(o.riesgo) || 0)), lim = limiteCuenta(c);
+    if (tot > lim + 1e-9) r.avisos.push({ cls: 'rojo', t: `${c}: el riesgo abierto quedaría en ${fmt(tot, 2)} % (máximo ${fmt(lim, 2)} %${lim === RIESGO.abiertoChallenge ? ', challenge' : ''}).` });
+  });
+  if (nueva && (o.cuentas || []).some((c) => CUENTAS_NOTICIAS.includes(c))) r.avisos.push({ cls: 'info', t: AVISO_NOTICIAS });
+  r.puede = !r.duro && (!r.blandos.length || (p.forzar && String(p.motivoForzado || '').trim() !== ''));
+  return r;
 }
 
 // --- Contadores -------------------------------------------------------------
@@ -535,7 +692,8 @@ async function recuperarDeLaHoja() {
       entrada: f.entrada, stop: f.stop, tp1: f.tp1, riesgo: f.riesgo,
       c1: !!f.c1, c2: !!f.c2, c3: !!f.c3, c4: !!f.c4, c5: !!f.c5, gestion: String(f.gestion || ''),
       fechaCierre: f.fechaCierre || '', resultadoR: f.resultadoR, dentroReglas: String(f.dentroReglas || ''),
-      motivo: String(f.motivo || ''), aprendizaje: String(f.aprendizaje || '')
+      motivo: String(f.motivo || ''), aprendizaje: String(f.aprendizaje || ''),
+      be: /break ?even|\bBE\b/i.test(String(f.gestion || ''))
     })).reverse().concat(pendientesOp);
     LS.set('operaciones', state.operaciones);
     const cand = await llamarScript('GET', { que: 'candidatas' });
@@ -620,6 +778,16 @@ function tarjetaDia(iso, key, titulo, hora, cuerpo, reg) {
   return `<div class="card"><h3>${esc(titulo)}${hora ? ' · ' + esc(hora) : ''}</h3>${cuerpo}
     <button class="btn hecha ${on ? 'on' : ''}" data-act="marcar" data-key="${key}" data-fecha="${iso}">${on ? '✓ Hecha · Deshacer' : 'Hecha ✓'}</button></div>`;
 }
+// Posiciones abiertas y avisos de riesgo para la revisión de 7:30.
+function avisosHoyHTML() {
+  const ab = abiertas(); if (!ab.length) return '';
+  let h = `<div class="aviso info">${ab.length} posición${ab.length > 1 ? 'es' : ''} abierta${ab.length > 1 ? 's' : ''}: ${ab.map((o) => esc(o.activo) + (o.be ? ' (BE)' : '')).join(', ')}.</div>`;
+  resumenRiesgo().filter((x) => x.riesgo > x.limite + 1e-9).forEach((x) => {
+    h += `<div class="aviso rojo">${esc(x.cuenta)}: riesgo abierto ${fmt(x.riesgo, 2)} % (máximo ${fmt(x.limite, 2)} %).</div>`;
+  });
+  if (hayNoticias()) h += `<div class="aviso">${esc(AVISO_NOTICIAS)}</div>`;
+  return h;
+}
 function viewHoy() {
   const d = fechaTab(), real = hoy(), iso = fechaISO(d), dow = diaSemana(d), w = semanaCurso(d);
   const reg = regDe(iso), fase = faseActual();
@@ -649,7 +817,7 @@ function viewHoy() {
       <div class="muted small">${mes.pct == null ? 'sin días marcados aún' : `${mes.si} de ${mes.marcados} días con reglas marcadas`}</div></div></div>`;
 
   if (dow <= 4) {
-    h += tarjetaDia(iso, 'rev730', 'Revisión', '7:30', `<ol class="pts">${CHECKLIST_730.map((t) => `<li>${esc(t)}</li>`).join('')}</ol>`, reg);
+    h += tarjetaDia(iso, 'rev730', 'Revisión', '7:30', `<ol class="pts">${CHECKLIST_730.map((t) => `<li>${esc(t)}</li>`).join('')}</ol>${avisosHoyHTML()}`, reg);
     h += tarjetaDia(iso, 'ny1530', 'Nueva York', '15:30',
       `<ol class="pts">${CHECKLIST_NY.map((t) => `<li>${esc(t)}</li>`).join('')}</ol>
        <div class="sep"></div>
@@ -667,7 +835,14 @@ function viewHoy() {
   if (dow === 6) {
     h += tarjetaDia(iso, 'planificacion', 'Planificación de la semana', PLANIFICACION.hora,
       `<ol class="pts">${PLANIFICACION.puntos.map((t) => `<li>${esc(t)}</li>`).join('')}</ol>
-       <button class="btn sec block" data-tab="semana" style="margin-top:8px">Ir a candidatas de la semana →</button>`, reg);
+       <button class="btn sec block" data-tab="candidatas" style="margin-top:8px">Ir a las candidatas →</button>`, reg);
+    if (state.pasar && state.pasar.fecha === iso) {
+      const cs = state.pasar.uids.map((u) => state.candidatas.find((c) => c.uid === u)).filter(Boolean);
+      h += `<div class="confirm" style="margin:-4px 0 12px"><b>${cs.length} candidata${cs.length > 1 ? 's' : ''} de la semana pasada sin entrada</b>
+        <div class="small" style="margin-top:4px">${cs.map((c) => esc(c.activo + ' · ' + c.direccion)).join(', ')}</div>
+        <div class="small muted" style="margin-top:4px">¿Pasan a la semana ${semanaPlan(d)}? Se reevalúan como cualquier otra.</div>
+        <div class="row"><button class="btn" data-act="pasarSi">Sí, pasarlas</button><button class="btn ghost" data-act="pasarNo">No</button></div></div>`;
+    }
   }
   if (dow === 5) h += `<div class="card"><h3>Sábado</h3><p class="small">Sin rutina de trading. Las posiciones abiertas se mantienen según plan: el stop ya lleva el riesgo.</p></div>`;
 
@@ -682,120 +857,242 @@ function viewHoy() {
   return h;
 }
 
-// --- Pestaña Diario (operaciones) -------------------------------------------
-function filaOp(o) {
-  const r = num(o.resultadoR), cl = checklistOK(o);
-  return `<button class="oprow" data-act="abrirOp" data-uid="${o.uid}">
-    <span class="t"><span>${esc(o.activo || 'sin activo')} · ${esc(o.direccion || '')}</span>
-      <span class="${r === '' ? 'muted' : r >= 0 ? 'pos' : 'neg'}">${r === '' ? 'abierta' : fmt(r, 2) + ' R'}</span></span>
-    <span class="s">${esc(o.fechaApertura || '')} · ${esc(o.tipo || '')}${o.cuentas && o.cuentas.length ? ' · ' + esc(o.cuentas.join(', ')) : ''}
-      ${cl ? '' : '<span class="tag warn">checklist incompleta</span>'}
-      ${o.dentroReglas === 'no' ? '<span class="tag bad">fuera de reglas</span>' : ''}
-      ${o.id != null ? `<span class="tag plain">#${o.id}</span>` : '<span class="tag warn">sin enviar</span>'}</span></button>`;
+// --- Pestaña Operaciones ----------------------------------------------------
+function tagEnvio(o) { return o.id != null ? `<span class="tag plain">#${o.id}</span>` : '<span class="tag warn">sin enviar</span>'; }
+function textoDias(n) { return n === 0 ? 'abierta hoy' : n === 1 ? '1 día abierta' : n + ' días abierta'; }
+function riesgoHTML() {
+  const rs = resumenRiesgo();
+  if (!rs.length) return '';
+  let h = `<div class="card"><h3>Riesgo abierto por cuenta</h3>`;
+  h += rs.map((x) => {
+    const alto = x.riesgo > x.limite + 1e-9, pct = Math.min(100, Math.round(100 * x.riesgo / x.limite));
+    return `<div class="rcuenta"><div class="row"><span><b>${esc(x.cuenta)}</b> <span class="muted small">${esc(x.fase || '')} · ${x.posiciones} ${x.posiciones === 1 ? 'posición' : 'posiciones'}</span></span>
+      <span class="small ${alto ? 'neg' : ''}">${fmt(x.riesgo, 2)} % de ${fmt(x.limite, 2)} %</span></div>
+      <div class="rbar ${alto ? 'alto' : ''}"><span style="width:${pct}%"></span></div>
+      ${alto ? `<div class="aviso rojo">Por encima del máximo de ${fmt(x.limite, 2)} %.</div>` : ''}
+      ${x.posiciones >= RIESGO.maxPosiciones ? `<div class="aviso">Tres posiciones: no se añade nada en esta cuenta.</div>` : ''}</div>`;
+  }).join('');
+  if (hayNoticias()) h += `<div class="aviso">${esc(AVISO_NOTICIAS)}</div>`;
+  h += `<p class="small muted" style="margin-top:8px">Solo informativo. Las posiciones en break even no suman riesgo.${state.cuentas.length ? '' : ' Fases de las cuentas según el plan: trae la hoja Cuentas desde Ajustes.'}</p></div>`;
+  return h;
 }
-function viewDiario() {
-  if (state.form) return viewOperacion();
-  const ops = state.operaciones.slice().sort((a, b) => String(b.fechaApertura || '').localeCompare(String(a.fechaApertura || '')));
-  const abiertas = ops.filter((o) => !cerrada(o)), cerradas = ops.filter(cerrada);
-  const rs = cerradas.map((o) => num(o.resultadoR)).filter((x) => x !== '');
-  const total = rs.reduce((a, b) => a + b, 0);
-  const conReglas = ops.filter((o) => o.dentroReglas === 'sí' || o.dentroReglas === 'no');
-  const pct = conReglas.length ? Math.round(100 * conReglas.filter((o) => o.dentroReglas === 'sí').length / conReglas.length) : null;
+function tarjetaAbierta(o) {
+  const r = ratioDe(o), ult = String(o.gestion || '').trim().split('\n').filter(Boolean).pop();
+  return `<div class="opcard">
+    <div class="t"><button class="linkbtn" data-act="editarOp" data-uid="${o.uid}">${esc(o.activo)} · ${esc(o.direccion)}</button>
+      <span class="small ${r == null ? 'muted' : r >= RATIO_MINIMO ? 'pos' : 'neg'}">${r == null ? '' : '1:' + fmt(r, 2)}</span></div>
+    <div class="s">${textoDias(diasAbierta(o))} · ${esc((o.cuentas || []).join(', '))} · ${fmt(num(o.riesgo) || 0, 2)} %
+      ${o.tipo === 'scalping' ? '<span class="tag">scalping</span>' : ''}${o.be ? '<span class="tag ok">BE</span>' : ''}${o.dentroReglas === 'no' ? '<span class="tag bad">fuera de reglas</span>' : ''} ${tagEnvio(o)}</div>
+    ${ult ? `<div class="s">Última gestión: ${esc(ult)}</div>` : ''}
+    <div class="acc"><button class="btn sec" data-act="gestionar" data-uid="${o.uid}">Gestionar</button>
+      <button class="btn" data-act="cerrar" data-uid="${o.uid}">Cerrar</button></div></div>`;
+}
+function filaCerrada(o) {
+  const r = num(o.resultadoR);
+  return `<button class="oprow" data-act="editarOp" data-uid="${o.uid}">
+    <span class="t"><span>${esc(o.activo || 'sin activo')} · ${esc(o.direccion || '')}</span>
+      <span class="${r === '' ? 'muted' : r >= 0 ? 'pos' : 'neg'}">${r === '' ? '—' : (r > 0 ? '+' : '') + fmt(r, 2) + ' R'}</span></span>
+    <span class="s">${esc(o.fechaApertura || '')} → ${esc(o.fechaCierre || '')} · ${esc(o.tipo || '')}
+      ${o.dentroReglas === 'no' ? '<span class="tag bad">fuera de reglas</span>' : ''} ${tagEnvio(o)}</span></button>`;
+}
+function viewOperaciones() {
+  const ab = abiertas().sort((a, b) => String(a.fechaApertura).localeCompare(String(b.fechaApertura)));
+  const ce = state.operaciones.filter(cerrada).sort((a, b) => String(b.fechaCierre || b.fechaApertura).localeCompare(String(a.fechaCierre || a.fechaApertura)));
+  const rs = ce.map((o) => num(o.resultadoR)).filter((x) => x !== ''), total = rs.reduce((a, b) => a + b, 0);
+  const val = state.operaciones.filter((o) => o.dentroReglas === 'sí' || o.dentroReglas === 'no');
+  const pct = val.length ? Math.round(100 * val.filter((o) => o.dentroReglas === 'sí').length / val.length) : null;
   let h = `<button class="btn block" data-act="nuevaOp">＋ Nueva operación</button>`;
   h += `<div class="stats" style="margin-top:12px">
-    <div class="stat ${total >= 0 ? 'good' : 'bad'}"><div class="l">Resultado</div><div class="v">${rs.length ? fmt(total, 2) + ' R' : '—'}</div>
-      <div class="muted small">${cerradas.length} cerrada(s) · ${abiertas.length} abierta(s)</div></div>
+    <div class="stat ${total >= 0 ? 'good' : 'bad'}"><div class="l">Resultado</div><div class="v">${rs.length ? (total > 0 ? '+' : '') + fmt(total, 2) + ' R' : '—'}</div>
+      <div class="muted small">${ce.length} cerrada(s) · ${ab.length} abierta(s)</div></div>
     <div class="stat ${pct == null ? '' : pct >= 100 ? 'good' : 'bad'}"><div class="l">Dentro de reglas</div><div class="v">${pct == null ? '—' : pct + ' %'}</div>
-      <div class="muted small">${pct == null ? 'sin operaciones valoradas' : conReglas.length + ' valorada(s) · objetivo 100 %'}</div></div></div>`;
-  h += `<div class="card"><h3>Abiertas</h3>${abiertas.length ? abiertas.map(filaOp).join('') : '<p class="vacio">Ninguna posición abierta.</p>'}</div>`;
-  h += `<div class="card"><h3>Cerradas</h3>${cerradas.length ? cerradas.slice(0, 40).map(filaOp).join('') : '<p class="vacio">Todavía no hay operaciones cerradas.</p>'}
-    ${cerradas.length > 40 ? `<p class="muted small">Se muestran las 40 más recientes. El histórico completo está en la hoja.</p>` : ''}</div>`;
-  return h;
-}
-function viewOperacion() {
-  const o = state.form, r = ratioDe(o), cl = checklistOK(o);
-  let h = `<div class="row" style="margin-bottom:10px"><button class="btn ghost" data-act="cerrarOp">‹ Diario</button>
-    <span class="muted small">${o.id != null ? 'Fila ' + (o.id + 1) + ' de la hoja (id ' + o.id + ')' : 'Todavía no está en la hoja'}</span></div>`;
-  h += `<div class="card"><h3>Apertura</h3>
-    <div class="f2">${campo('Fecha de apertura', inpFecha('form', 'fechaApertura', o.fechaApertura))}
-      ${campo('Riesgo %', inpNum('form', 'riesgo', o.riesgo, '1'))}</div>
-    ${campo('Tipo', seg('opTipo', o.tipo, ['swing', 'scalping']))}
-    ${campo('Activo', `<input type="text" list="activos" data-o="form" data-f="activo" value="${esc(o.activo)}" placeholder="XAUUSD" autocapitalize="characters" autocomplete="off">
-      <datalist id="activos">${ACTIVOS.map((a) => `<option value="${a}">`).join('')}</datalist>`)}
-    ${campo('Dirección', seg('opDir', o.direccion, ['largo', 'corto']))}
-    ${campo('Cuentas', `<div class="chips">${CUENTAS.map((c) => `<button class="${(o.cuentas || []).includes(c) ? 'on' : ''}" data-act="opCuenta" data-v="${esc(c)}">${esc(c)}</button>`).join('')}</div>`)}
-    <div class="f3">${campo('Entrada', inpNum('form', 'entrada', o.entrada, '0'))}
-      ${campo('Stop', inpNum('form', 'stop', o.stop, '0'))}
-      ${campo('TP1', inpNum('form', 'tp1', o.tp1, '0'))}</div>
-    <p style="margin-top:10px" id="ratioOp">${tagRatio(r)}</p></div>`;
-  h += `<div class="card"><h3>Checklist de entrada · las cinco a la vez</h3>
-    ${CHECKLIST_ENTRADA.map((c) => clItem(c.id, c.corto, c.texto, !!o[c.id], 'opCheck')).join('')}
-    <div class="msg ${cl ? 'ok' : 'err'}" style="margin-top:12px">${cl ? 'Checklist completa.' : 'Checklist incompleta: según el plan no se abre.'}</div></div>`;
-  h += `<div class="card"><h3>Gestión</h3>
-    ${ta('form', 'gestion', o.gestion, 'Una línea por acción, con fecha')}
-    <button class="btn sec block" data-act="opLinea" style="margin-top:8px">＋ Línea con la fecha de hoy</button>
-    <details style="margin-top:10px"><summary class="small">Checklist de gestión</summary>
-      <ol class="pts">${CHECKLIST_GESTION.map((t) => `<li>${esc(t)}</li>`).join('')}</ol></details></div>`;
-  h += `<div class="card"><h3>Cierre</h3>
-    <div class="f2">${campo('Fecha de cierre', inpFecha('form', 'fechaCierre', o.fechaCierre))}
-      ${campo('Resultado (R)', inpNum('form', 'resultadoR', o.resultadoR, '2,5'))}</div>
-    ${campo('Dentro de reglas', seg('opReglas', o.dentroReglas || '', [{ v: 'sí', n: 'Sí', cls: 'si' }, { v: 'no', n: 'No', cls: 'no' }]))}
-    ${o.dentroReglas === 'no' ? campo('Motivo', inp('form', 'motivo', o.motivo, 'Qué regla y por qué')) : ''}
-    ${campo('Aprendizaje', inp('form', 'aprendizaje', o.aprendizaje, 'Una línea'))}</div>`;
-  h += `<button class="btn block" data-act="guardarOp">Guardar</button>`;
-  if (o.id == null && state.operaciones.some((x) => x.uid === o.uid)) {
-    h += state.borrar === o.uid
-      ? `<div class="confirm">Se quita solo de la app. Si ya se había enviado, la fila sigue en la hoja.<div class="row"><button class="btn danger" data-act="opQuitarOk">Sí, quitar</button><button class="btn ghost" data-act="opQuitarNo">Cancelar</button></div></div>`
-      : `<button class="btn ghost block" data-act="opQuitar" style="margin-top:8px">Quitar de la app</button>`;
-  }
+      <div class="muted small">${pct == null ? 'sin operaciones valoradas' : val.length + ' valorada(s) · objetivo 100 %'}</div></div></div>`;
+  h += riesgoHTML();
+  h += `<div class="card"><h3>Abiertas · ${ab.length}</h3>${ab.length ? ab.map(tarjetaAbierta).join('') : '<p class="vacio">Ninguna posición abierta.</p>'}</div>`;
+  h += `<div class="card"><h3>Cerradas${ce.length > 30 ? ' · últimas 30' : ''}</h3>${ce.length ? ce.slice(0, 30).map(filaCerrada).join('') : '<p class="vacio">Todavía no hay operaciones cerradas.</p>'}</div>`;
   return h;
 }
 
-// --- Pestaña Semana (candidatas, estado semanal y cuentas) ------------------
-function ratioCand(c) {
-  const z = num(c.zona), s = num(c.stop), t = num(c.tp1);
-  if (z === '' || s === '' || t === '' || z === s) return null;
-  return Math.abs(t - z) / Math.abs(z - s);
+// --- Pantallas completas: operación, gestión, cierre y candidata -----------
+function abrirNuevaOp(base, candUid) {
+  const o = Object.assign({ uid: uid(), fechaApertura: fechaISO(hoy()), tipo: 'swing', activo: '', direccion: 'largo',
+    cuentas: state.ajustes.cuentasSwing.slice(), entrada: '', stop: '', tp1: '', riesgo: '',
+    c1: false, c2: false, c3: false, c4: false, c5: false, gestion: '', fechaCierre: '', resultadoR: '',
+    dentroReglas: '', motivo: '', aprendizaje: '', be: false }, base || {});
+  o.riesgo = fmtRiesgo(riesgoPropuesto(o));
+  state.pantalla = { tipo: 'op', o, candUid: candUid || null, riesgoAuto: true, forzar: false, motivoForzado: '',
+    activoOtro: !!(o.activo && !ACTIVOS.includes(o.activo)) };
+  guardarPantalla(); render();
 }
-function viewSemana() {
+function fmtRiesgo(n) { return String(n).replace('.', ','); }
+function recalcularRiesgo(p) { if (p.riesgoAuto) p.o.riesgo = fmtRiesgo(riesgoPropuesto(p.o)); }
+function opDe(uidOp) { return state.operaciones.find((x) => x.uid === uidOp); }
+function cabeceraP(titulo) {
+  return `<div class="phead"><button class="btn ghost" data-act="pCancelar">Cancelar</button><h2>${esc(titulo)}</h2><span style="min-width:72px"></span></div>`;
+}
+function selectorActivo(dataO, valor, otro) {
+  const sel = ACTIVOS.includes(valor) ? valor : (otro || valor ? 'otro' : '');
+  return `<select data-activo="${dataO}"><option value="" ${sel === '' ? 'selected' : ''} disabled>Elige activo</option>
+      ${ACTIVOS.map((a) => `<option value="${a}" ${sel === a ? 'selected' : ''}>${a}</option>`).join('')}
+      <option value="otro" ${sel === 'otro' ? 'selected' : ''}>Otro…</option></select>
+    ${sel === 'otro' ? `<input type="text" data-o="${dataO}" data-f="activo" value="${esc(valor)}" placeholder="Símbolo, p. ej. AAPL" autocapitalize="characters" autocomplete="off" style="margin-top:8px">` : ''}`;
+}
+function avisosOpHTML(v) {
+  return (v.duro ? `<div class="aviso rojo">${esc(v.duro)}</div>` : '') + v.avisos.map((a) => `<div class="aviso ${a.cls}">${esc(a.t)}</div>`).join('');
+}
+function viewPantallaOp(p) {
+  const o = p.o, nueva = !opDe(o.uid), v = validarOp(p), items = textosChecklist(o.tipo);
+  let h = cabeceraP(nueva ? 'Nueva operación' : 'Editar operación');
+  if (p.candUid) { const c = state.candidatas.find((x) => x.uid === p.candUid); if (c) h += `<div class="aviso info" style="margin:0 0 10px">Desde la candidata ${esc(c.activo)}: al guardar pasa a «entrada».</div>`; }
+  if (!nueva) h += `<p class="small muted" style="margin:0 0 8px">${o.id != null ? 'Fila ' + (o.id + 1) + ' de la hoja (id ' + o.id + ')' : 'Todavía no está en la hoja'}</p>`;
+  h += `<div class="card">
+    ${campo('Tipo', seg('pTipo', o.tipo, ['swing', 'scalping']))}
+    ${campo('Activo', selectorActivo('po', o.activo, p.activoOtro))}
+    ${campo('Dirección', seg('pDir', o.direccion, ['largo', 'corto']))}
+    ${campo('Cuentas', `<div class="chips">${CUENTAS.map((c) => `<button class="${(o.cuentas || []).includes(c) ? 'on' : ''}" data-act="pCuenta" data-v="${esc(c)}">${esc(c)}</button>`).join('')}</div>`)}
+    <div class="f2">${campo('Fecha', inpFecha('po', 'fechaApertura', o.fechaApertura))}
+      ${campo('Riesgo %', inpNum('po', 'riesgo', o.riesgo, '1'))}</div>
+    <div class="f3">${campo('Entrada', inpNum('po', 'entrada', o.entrada, '0'))}
+      ${campo('Stop', inpNum('po', 'stop', o.stop, '0'))}
+      ${campo('TP1', inpNum('po', 'tp1', o.tp1, '0'))}</div>
+    <p style="margin-top:10px" id="ratioOp">${tagRatio(ratioDe(o))}</p></div>`;
+  h += `<div class="card"><h3>${o.tipo === 'scalping' ? 'Checklist de scalping · provisional' : 'Checklist de entrada · las cinco a la vez'}</h3>
+    ${items.map((c) => `<button class="sw ${o[c.id] ? 'on' : ''}" data-act="pCheck" data-id="${c.id}" role="switch" aria-checked="${!!o[c.id]}">
+      <span class="tg"></span><span class="tx"><b>${esc(c.corto)}</b>${c.texto ? `<span>${esc(c.texto)}</span>` : ''}</span></button>`).join('')}
+    ${o.tipo === 'scalping' ? '<p class="small muted" style="margin-top:6px">Los textos se cambian en Ajustes hasta que la estrategia de scalping esté escrita.</p>' : ''}</div>`;
+  h += `<div id="avisosOp">${avisosOpHTML(v)}</div>`;
+  h += `<div class="card" id="forzarOp" style="margin-top:10px;border-color:var(--danger)" ${v.blandos.length ? '' : 'hidden'}>
+    <div class="aviso rojo" id="blandosTxt" style="margin-top:0">Fuera de reglas: ${esc(v.blandos.join(' · '))}. No se guarda salvo que lo marques.</div>
+    <label class="forzar"><input type="checkbox" id="pForzar" ${p.forzar ? 'checked' : ''}> Guardar igualmente y anotar motivo</label>
+    ${campo('Motivo', inp('p', 'motivoForzado', p.motivoForzado, 'Por qué se abre fuera de la checklist'))}</div>`;
+  if (!nueva) {
+    h += `<div class="card" style="margin-top:10px"><h3>Gestión</h3>${ta('po', 'gestion', o.gestion, 'Una línea por acción, con fecha')}</div>`;
+    if (cerrada(o)) h += `<div class="card"><h3>Cierre</h3>
+      <div class="f2">${campo('Fecha de cierre', inpFecha('po', 'fechaCierre', o.fechaCierre))}${campo('Resultado (R)', inpNum('po', 'resultadoR', o.resultadoR, '2,5'))}</div>
+      ${campo('Dentro de reglas', seg('peReglas', o.dentroReglas || '', [{ v: 'sí', n: 'Sí', cls: 'si' }, { v: 'no', n: 'No', cls: 'no' }]))}
+      ${campo('Motivo si no', inp('po', 'motivo', o.motivo, ''))}
+      ${campo('Aprendizaje', inp('po', 'aprendizaje', o.aprendizaje, ''))}</div>`;
+  }
+  h += `<div class="barra"><button class="btn" id="btnGuardar" data-act="pGuardar" ${v.puede ? '' : 'disabled'}>${nueva ? 'Guardar operación' : 'Guardar cambios'}</button></div>`;
+  return h;
+}
+function lineaGestion(p) {
+  const pct = num(p.pct);
+  return `${p.fecha}: ${p.accion}${p.accion === 'cierre parcial' && pct !== '' ? ' ' + fmtRiesgo(pct) + ' %' : ''}`
+    + (p.motivo ? ' · ' + p.motivo : '') + (String(p.nota || '').trim() ? ' · ' + String(p.nota).trim() : '');
+}
+function gestionValida(p) { return !!p.fecha && (p.accion !== 'cierre parcial' || num(p.pct) > 0); }
+function viewPantallaGestion(p) {
+  const o = opDe(p.uid); if (!o) return cabeceraP('Gestionar') + '<p class="vacio">La operación ya no existe.</p>';
+  const lineas = String(o.gestion || '').trim().split('\n').filter(Boolean);
+  let h = cabeceraP('Gestionar');
+  h += `<div class="card"><b>${esc(o.activo)} · ${esc(o.direccion)}</b>
+    <div class="small muted">Entrada ${esc(o.entrada)} · stop ${esc(o.stop)} · TP1 ${esc(o.tp1)} · ${textoDias(diasAbierta(o))}</div>
+    ${lineas.length ? `<ul class="plain small">${lineas.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>` : '<p class="small muted">Sin gestión todavía.</p>'}</div>`;
+  h += `<div class="card">
+    ${campo('Fecha', inpFecha('p', 'fecha', p.fecha))}
+    ${campo('Acción', `<div class="chips">${ACCIONES_GESTION.map((a) => `<button class="${p.accion === a ? 'on' : ''}" data-act="gAccion" data-v="${esc(a)}">${esc(a)}</button>`).join('')}</div>`)}
+    ${p.accion === 'cierre parcial' ? campo('Porcentaje cerrado', inpNum('p', 'pct', p.pct, '50')) : ''}
+    ${campo('Motivo', `<div class="chips">${MOTIVOS_GESTION.map((m) => `<button class="${p.motivo === m ? 'on' : ''}" data-act="gMotivo" data-v="${esc(m)}">${esc(m)}</button>`).join('')}</div>`)}
+    ${campo('Nota', inp('p', 'nota', p.nota, 'Opcional'))}
+    <div class="aviso info">Se añade a Gestión: <b id="gPrev">${esc(lineaGestion(p))}</b></div>
+    ${(o.cuentas || []).some((c) => CUENTAS_NOTICIAS.includes(c)) ? `<div class="aviso">${esc(AVISO_NOTICIAS)}</div>` : ''}
+    ${p.accion === 'cierre parcial' && (o.cuentas || []).includes('200K') ? '<div class="aviso">En la 200K ningún día suma más de 8.000 $: si se acerca, no se cierran más parciales hoy.</div>' : ''}</div>`;
+  h += `<div class="barra"><button class="btn" id="btnG" data-act="gGuardar" ${gestionValida(p) ? '' : 'disabled'}>Añadir a Gestión</button></div>`;
+  return h;
+}
+function cierreValido(p) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(p.fechaCierre || '') && num(p.resultadoR) !== '' && !!p.dentroReglas
+    && (p.dentroReglas !== 'no' || String(p.motivo || '').trim() !== '');
+}
+function viewPantallaCierre(p) {
+  const o = opDe(p.uid); if (!o) return cabeceraP('Cerrar') + '<p class="vacio">La operación ya no existe.</p>';
+  const parciales = /parcial/i.test(o.gestion || ''), rs = rDeSalida(o, p.salida);
+  let h = cabeceraP('Cerrar operación');
+  h += `<div class="card"><b>${esc(o.activo)} · ${esc(o.direccion)}</b>
+    <div class="small muted">Entrada ${esc(o.entrada)} · stop ${esc(o.stop)} · TP1 ${esc(o.tp1)} · ${textoDias(diasAbierta(o))}</div>
+    ${parciales ? '<div class="aviso">Hubo cierres parciales: el R del precio de salida no los tiene en cuenta. Revísalo y escríbelo a mano si hace falta.</div>' : ''}</div>`;
+  h += `<div class="card">
+    <div class="f2">${campo('Fecha de cierre', inpFecha('p', 'fechaCierre', p.fechaCierre))}
+      ${campo('Precio de salida', inpNum('p', 'salida', p.salida, 'opcional'))}</div>
+    <p class="small muted" id="cRcalc">${rs == null ? 'Con el precio de salida se calcula el R.' : 'Calculado: ' + (rs > 0 ? '+' : '') + fmt(rs, 2) + ' R'}</p>
+    <div class="field"><label>Resultado (R)</label><input type="text" id="cR" data-o="p" data-f="resultadoR" value="${esc(p.resultadoR)}" placeholder="2,5" inputmode="decimal" autocomplete="off"></div>
+    ${campo('Dentro de reglas', seg('cReglas', p.dentroReglas || '', [{ v: 'sí', n: 'Sí', cls: 'si' }, { v: 'no', n: 'No', cls: 'no' }]))}
+    ${p.dentroReglas === 'no' ? campo('Motivo', inp('p', 'motivo', p.motivo, 'Qué regla y por qué')) : ''}
+    ${campo('Aprendizaje', inp('p', 'aprendizaje', p.aprendizaje, 'Una línea'))}
+    ${(o.cuentas || []).some((c) => CUENTAS_NOTICIAS.includes(c)) ? `<div class="aviso">${esc(AVISO_NOTICIAS)}</div>` : ''}</div>`;
+  h += `<div class="barra"><button class="btn" id="btnC" data-act="cGuardar" ${cierreValido(p) ? '' : 'disabled'}>Cerrar operación</button></div>`;
+  return h;
+}
+function viewPantallaCand(p) {
+  const c = p.c, nueva = !state.candidatas.some((x) => x.uid === c.uid);
+  let h = cabeceraP(nueva ? 'Nueva candidata' : 'Editar candidata');
+  h += `<div class="card"><p class="small muted" style="margin-top:0">Semana ${semanaCurso(sumarDias(parseISO(c.fecha), 1))} · domingo ${esc(fechaCorta(parseISO(c.fecha)))}</p>
+    ${campo('Activo', selectorActivo('pc', c.activo, p.activoOtro))}
+    ${campo('Dirección', seg('pcDir', c.direccion, ['largo', 'corto']))}
+    <div class="f3">${campo('Zona', inpNum('pc', 'zona', c.zona, '0'))}
+      ${campo('Stop', inpNum('pc', 'stop', c.stop, '0'))}
+      ${campo('TP1', inpNum('pc', 'tp1', c.tp1, '0'))}</div>
+    <p style="margin-top:10px" id="ratioCand">${tagRatio(ratioCand(c))}</p>
+    ${nueva ? '' : campo('Estado', `<div class="chips">${ESTADOS_CANDIDATA.map((e) => `<button class="${c.estado === e ? 'on' : ''}" data-act="pcEstado" data-v="${esc(e)}">${esc(e)}</button>`).join('')}</div>`)}
+    ${campo('Notas', inp('pc', 'notas', c.notas, 'Zona repetida en 3 temporalidades…'))}</div>`;
+  h += `<div class="barra"><button class="btn" id="btnCand" data-act="pcGuardar" ${String(c.activo || '').trim() ? '' : 'disabled'}>${nueva ? 'Añadir candidata' : 'Guardar cambios'}</button></div>`;
+  return h;
+}
+function viewPantalla() {
+  const p = state.pantalla;
+  return { op: viewPantallaOp, gestion: viewPantallaGestion, cierre: viewPantallaCierre, cand: viewPantallaCand }[p.tipo](p);
+}
+// Repinta solo las partes vivas de la pantalla (ratio, avisos, botón) sin perder el foco.
+function pintarPantalla() {
+  const p = state.pantalla; if (!p) return;
+  if (p.tipo === 'op') {
+    const v = validarOp(p);
+    const r = $('#ratioOp'); if (r) r.innerHTML = tagRatio(ratioDe(p.o));
+    const a = $('#avisosOp'); if (a) a.innerHTML = avisosOpHTML(v);
+    const f = $('#forzarOp'); if (f) { f.hidden = !v.blandos.length; $('#blandosTxt').textContent = `Fuera de reglas: ${v.blandos.join(' · ')}. No se guarda salvo que lo marques.`; }
+    const b = $('#btnGuardar'); if (b) b.disabled = !v.puede;
+  } else if (p.tipo === 'gestion') {
+    const g = $('#gPrev'); if (g) g.textContent = lineaGestion(p);
+    const b = $('#btnG'); if (b) b.disabled = !gestionValida(p);
+  } else if (p.tipo === 'cierre') {
+    const o = opDe(p.uid), rs = o ? rDeSalida(o, p.salida) : null;
+    const t = $('#cRcalc'); if (t) t.textContent = rs == null ? 'Con el precio de salida se calcula el R.' : 'Calculado: ' + (rs > 0 ? '+' : '') + fmt(rs, 2) + ' R';
+    const b = $('#btnC'); if (b) b.disabled = !cierreValido(p);
+  } else if (p.tipo === 'cand') {
+    const r = $('#ratioCand'); if (r) r.innerHTML = tagRatio(ratioCand(p.c));
+    const b = $('#btnCand'); if (b) b.disabled = !String(p.c.activo || '').trim();
+  }
+}
+
+// --- Pestaña Candidatas -----------------------------------------------------
+const abiertosDet = {};   // <details> abiertos, para que no se cierren al repintar
+function viewCandidatas() {
   const w = semanaSel(), dom = domingoDeSemana(w), isoDom = fechaISO(dom);
-  if (!borradores.cand) borradores.cand = { activo: '', direccion: 'largo', zona: '', stop: '', tp1: '', estado: 'pendiente', notas: '' };
   if (!borradores.est) borradores.est = { cuenta: CUENTAS[0], balance: '', drawdown: '', diasRentables: '', proximoRetiro: '', progreso: '', notas: '' };
   const cs = state.candidatas.filter((c) => c.fecha === isoDom);
-  const b = borradores.cand, rb = ratioCand(b);
-
   let h = `<div class="weekpick">
     <button class="btn sec" data-act="sem" data-d="-1" ${w <= 1 ? 'disabled' : ''} aria-label="Semana anterior">‹</button>
     <div class="lbl">Semana ${w}<div class="muted small" style="font-weight:400">planificada el domingo ${esc(fechaCorta(dom))}</div></div>
     <button class="btn sec" data-act="sem" data-d="1" ${w >= ULTIMA_SEMANA ? 'disabled' : ''} aria-label="Semana siguiente">›</button></div>`;
   if (w !== semanaPlan(hoy())) h += `<button class="btn ghost block" data-act="semHoy" style="margin-bottom:10px">Volver a la semana en curso</button>`;
-
-  h += `<div class="card"><h3>Candidatas · ${cs.length}</h3>`;
+  h += `<button class="btn block" data-act="nuevaCand">＋ Candidata</button>`;
+  h += `<div class="card" style="margin-top:12px"><h3>Candidatas · ${cs.length}</h3>`;
   h += cs.length ? cs.map((c) => {
     const r = ratioCand(c);
-    return `<div style="border-top:1px solid var(--line);padding:10px 0">
-      <div class="row"><div><b>${esc(c.activo || 'sin activo')}</b> · ${esc(c.direccion || '')}
-        ${c.fila == null ? '<span class="tag warn">sin enviar</span>' : ''}</div>
-        <div class="small">${r == null ? '' : (r >= RATIO_MINIMO ? '<span class="pos">1:' + fmt(r, 2) + '</span>' : '<span class="neg">1:' + fmt(r, 2) + '</span>')}</div></div>
-      <div class="muted small">Zona ${esc(c.zona)} · stop ${esc(c.stop)} · TP1 ${esc(c.tp1)}${c.notas ? ' · ' + esc(c.notas) : ''}</div>
+    return `<div class="opcard">
+      <div class="t"><button class="linkbtn" data-act="editarCand" data-uid="${c.uid}">${esc(c.activo || 'sin activo')} · ${esc(c.direccion || '')}</button>
+        <span class="small ${r == null ? 'muted' : r >= RATIO_MINIMO ? 'pos' : 'neg'}">${r == null ? '' : '1:' + fmt(r, 2)}</span></div>
+      <div class="s">Zona ${esc(c.zona)} · stop ${esc(c.stop)} · TP1 ${esc(c.tp1)}${c.fila == null ? ' <span class="tag warn">sin enviar</span>' : ''}</div>
+      ${c.notas ? `<div class="s">${esc(c.notas)}</div>` : ''}
       <div class="chips">${ESTADOS_CANDIDATA.map((e) => `<button class="${c.estado === e ? 'on' : ''}" data-act="candEstado" data-uid="${c.uid}" data-v="${esc(e)}">${esc(e)}</button>`).join('')}</div>
+      ${c.estado === 'pendiente' || c.estado === 'siguiente semana' ? `<div class="acc"><button class="btn sec" data-act="convertir" data-uid="${c.uid}">Convertir en operación</button></div>` : ''}
     </div>`;
   }).join('') : '<p class="vacio">Ninguna candidata para esta semana. Se marcan el domingo, en la planificación.</p>';
   h += `</div>`;
 
-  h += `<div class="card"><h3>Añadir candidata</h3>
-    ${campo('Activo', `<input type="text" list="activos2" data-o="cand" data-f="activo" value="${esc(b.activo)}" placeholder="XAUUSD" autocapitalize="characters" autocomplete="off">
-      <datalist id="activos2">${ACTIVOS.map((a) => `<option value="${a}">`).join('')}</datalist>`)}
-    ${campo('Dirección', seg('candDir', b.direccion, ['largo', 'corto']))}
-    <div class="f3">${campo('Zona', inpNum('cand', 'zona', b.zona, '0'))}
-      ${campo('Stop', inpNum('cand', 'stop', b.stop, '0'))}
-      ${campo('TP1', inpNum('cand', 'tp1', b.tp1, '0'))}</div>
-    <p style="margin-top:10px" id="ratioCand">${tagRatio(rb)}</p>
-    ${campo('Notas', inp('cand', 'notas', b.notas, 'Zona repetida en 3 temporalidades…'))}
-    <button class="btn block" data-act="addCand" style="margin-top:12px">Añadir a la semana ${w}</button></div>`;
-
   const e = borradores.est;
-  h += `<div class="card"><h3>Estado semanal por cuenta</h3>
+  h += `<div class="card"><details data-k="est" ${abiertosDet.est ? 'open' : ''}><summary>Estado semanal por cuenta</summary>
     ${campo('Cuenta', `<select data-o="est" data-f="cuenta">${CUENTAS.map((c) => `<option value="${esc(c)}" ${e.cuenta === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>`)}
     <div class="f2">${campo('Balance', inpNum('est', 'balance', e.balance, '52.300'))}
       ${campo('Drawdown usado (%)', inpNum('est', 'drawdown', e.drawdown, '1,2'))}</div>
@@ -804,19 +1101,18 @@ function viewSemana() {
     ${campo('Próximo retiro', inpFecha('est', 'proximoRetiro', e.proximoRetiro))}
     ${campo('Notas', inp('est', 'notas', e.notas, ''))}
     <button class="btn block" data-act="addEst" style="margin-top:12px">Guardar estado del domingo ${esc(fechaCorta(dom))}</button>
-    ${state.estadoSemanal.length ? `<details style="margin-top:10px"><summary class="small">Últimos guardados</summary>
-      <div class="tablewrap"><table><tr><th>Fecha</th><th>Cuenta</th><th>Balance</th><th>DD %</th></tr>
+    ${state.estadoSemanal.length ? `<div class="tablewrap" style="margin-top:10px"><table><tr><th>Fecha</th><th>Cuenta</th><th>Balance</th><th>DD %</th></tr>
       ${state.estadoSemanal.slice(0, 12).map((x) => `<tr><td>${esc(x.fecha)}</td><td>${esc(x.cuenta)}</td><td>${esc(x.balance)}</td><td>${esc(x.drawdown)}</td></tr>`).join('')}
-      </table></div></details>` : ''}</div>`;
+      </table></div>` : ''}</details></div>`;
 
-  h += `<div class="card"><h3>Cuentas</h3><p class="small muted">Solo lectura: se leen de la hoja Cuentas.</p>`;
+  h += `<div class="card"><details data-k="cuentas" ${abiertosDet.cuentas ? 'open' : ''}><summary>Cuentas (de la hoja)</summary>`;
   if (state.cuentas.length) {
-    h += `<div class="tablewrap"><table><tr><th>Cuenta</th><th>Fase</th><th>Objetivo</th><th>P. diaria</th><th>P. máxima</th></tr>
-      ${state.cuentas.map((c) => `<tr><td class="b">${esc(c.cuenta)}</td><td>${esc(c.fase)}</td><td>${esc(c.objetivo)}</td><td>${esc(c.perdidaDiaria)}</td><td>${esc(c.perdidaMaxima)}</td></tr>`).join('')}</table></div>`;
+    h += `<div class="tablewrap"><table><tr><th>Cuenta</th><th>Fase</th><th>Estado</th><th>Objetivo</th><th>P. diaria</th></tr>
+      ${state.cuentas.map((c) => `<tr><td class="b">${esc(c.cuenta)}</td><td>${esc(c.fase)}</td><td>${esc(c.estado)}</td><td>${esc(c.objetivo)}</td><td>${esc(c.perdidaDiaria)}</td></tr>`).join('')}</table></div>`;
   } else {
     h += `<p class="vacio">Todavía no se han traído de la hoja.</p><button class="btn sec block" data-act="traerCuentas">Traer cuentas de la hoja</button>`;
   }
-  h += `</div>`;
+  h += `</details></div>`;
   return h;
 }
 
@@ -887,6 +1183,12 @@ function viewAjustes() {
     <p class="small muted">Se escribe en la columna "Fase scalping" al marcar cada día.</p>
     <div class="field"><select id="cfgFase">${FASES.map((f) => `<option value="${f.n}" ${a.fase === f.n ? 'selected' : ''}>${esc(f.nombre)} · ${esc(f.cuando)}</option>`).join('')}</select></div>
     <p class="small">${esc(faseActual().tarea)}</p></div>`;
+  h += `<div class="card"><h2>Cuentas de swing activas</h2>
+    <p class="small muted">Vienen marcadas por defecto en cada operación nueva de swing. La de scalping va sola en las de scalping.</p>
+    <div class="chips">${CUENTAS.filter((c) => c !== CUENTA_SCALPING).map((c) => `<button class="${a.cuentasSwing.includes(c) ? 'on' : ''}" data-act="ajCuenta" data-v="${esc(c)}">${esc(c)}</button>`).join('')}</div></div>`;
+  h += `<div class="card"><h2>Checklist de scalping</h2>
+    <p class="small muted">Textos provisionales de las cinco casillas de las operaciones de scalping (columnas C1-C5). Se escribirán con la estrategia.</p>
+    ${a.checklistScalping.map((t, i) => campo('Condición ' + (i + 1), `<input type="text" data-scalp="${i}" value="${esc(t)}" autocomplete="off">`)).join('')}</div>`;
   h += `<div class="card"><h2>Copia de seguridad</h2>
     <p class="small muted">Incluye todo lo guardado en este móvil: días marcados, operaciones, candidatas, estado semanal, backtest, cola pendiente, URL y token.</p>
     <div class="row" style="margin-top:8px"><button class="btn" data-act="exportar">Descargar copia de seguridad</button>
@@ -904,36 +1206,60 @@ function viewAjustes() {
 // --- Pintado ----------------------------------------------------------------
 let vistaAnterior = '';
 function render() {
-  const d = hoy(), w = semanaCurso(d);
+  const d = hoy(), w = semanaCurso(d), p = state.pantalla;
   $('#pill').textContent = (w < 1 ? 'Pretemporada' : 'S' + w) + ' · fase ' + state.ajustes.fase;
-  $('#view').innerHTML = { hoy: viewHoy, diario: viewDiario, semana: viewSemana, plan: viewPlan, ajustes: viewAjustes }[state.tab]();
+  const clave = p ? 'p:' + p.tipo + ':' + (p.uid || (p.o || p.c || {}).uid) : state.tab;
+  const prev = $('.pantalla'), scrollP = prev && clave === vistaAnterior ? prev.scrollTop : 0;
+  document.body.classList.toggle('enpantalla', !!p);
+  $('#view').innerHTML = p
+    ? `<div class="pantalla"><div class="inner">${viewPantalla()}</div></div>`
+    : { hoy: viewHoy, operaciones: viewOperaciones, candidatas: viewCandidatas, plan: viewPlan, ajustes: viewAjustes }[state.tab]();
+  if (p) $('.pantalla').scrollTop = scrollP;
   $('#tabbar').innerHTML = TABS.map((t) => `<button class="${t.id === state.tab ? 'on' : ''}" data-tab="${t.id}" aria-label="${t.n}"><span class="ic">${t.ic}</span>${t.n}</button>`).join('');
-  const clave = state.tab + ':' + (state.form ? state.form.uid : '');
-  if (clave !== vistaAnterior) window.scrollTo(0, 0);
+  if (clave !== vistaAnterior && !p) window.scrollTo(0, 0);
   vistaAnterior = clave;
   guardar();
 }
-function guardarForm() { LS.set('form', state.form); }
+function cerrarPantalla() { state.pantalla = null; guardarPantalla(); render(); }
+
+// El domingo, al marcar la planificación: candidatas de la semana pasada sin entrada.
+function candidatasSinEntrada(iso) {
+  const antes = fechaISO(sumarDias(parseISO(iso), -7));
+  return state.candidatas.filter((c) => c.fecha === antes && !c.pasada && (c.estado === 'pendiente' || c.estado === 'siguiente semana' || !c.estado));
+}
+function pasarCandidatas() {
+  const q = state.pasar; if (!q) return;
+  q.uids.forEach((u) => {
+    const c = state.candidatas.find((x) => x.uid === u); if (!c) return;
+    c.estado = 'siguiente semana'; c.pasada = true; guardarCandidata(c);
+    guardarCandidata({ uid: uid(), fecha: q.fecha, activo: c.activo, direccion: c.direccion, zona: c.zona, stop: c.stop, tp1: c.tp1, estado: 'pendiente', notas: c.notas || '' });
+  });
+  state.pasar = null;
+}
 
 // --- Eventos ----------------------------------------------------------------
 $('#tabbar').addEventListener('click', (e) => {
   const b = e.target.closest('[data-tab]'); if (!b) return;
-  if (b.dataset.tab === 'diario' && state.tab === 'diario') { state.form = null; guardarForm(); }
-  state.tab = b.dataset.tab; state.borrar = null; render();
+  state.tab = b.dataset.tab; render();
 });
 
 $('#view').addEventListener('click', (e) => {
   const el = e.target.closest('[data-act],[data-tab]'); if (!el) return;
   if (el.dataset.tab) { state.tab = el.dataset.tab; render(); return; }
-  const iso = fechaISO(fechaTab()), reg = regDe(iso), v = el.dataset.v;
+  const iso = fechaISO(fechaTab()), reg = regDe(iso), v = el.dataset.v, p = state.pantalla;
   switch (el.dataset.act) {
     // Hoy
     case 'dia': state.offset = Math.min(0, Math.max(-DIAS_ATRAS, state.offset + parseInt(el.dataset.d, 10))); render(); break;
     case 'diaHoy': state.offset = 0; render(); break;
     case 'marcar': {
       const k = el.dataset.key, f = el.dataset.fecha, nuevo = !regDe(f)[k];
-      guardarRegistro(f, { [k]: nuevo }); render(); encolarDia(f, { [k]: nuevo }); break;
+      guardarRegistro(f, { [k]: nuevo });
+      if (k === 'planificacion' && nuevo) { const cs = candidatasSinEntrada(f); state.pasar = cs.length ? { fecha: f, uids: cs.map((c) => c.uid) } : null; }
+      if (k === 'planificacion' && !nuevo) state.pasar = null;
+      render(); encolarDia(f, { [k]: nuevo }); break;
     }
+    case 'pasarSi': pasarCandidatas(); render(); break;
+    case 'pasarNo': state.pasar = null; render(); break;
     case 'reglas': {
       const nuevo = reg.reglas === v ? '' : v;
       guardarRegistro(iso, { reglas: nuevo }); render();
@@ -943,62 +1269,87 @@ $('#view').addEventListener('click', (e) => {
       const nuevo = reg.freno === v ? '' : v;
       guardarRegistro(iso, { freno: nuevo }); render(); encolarDia(iso, { freno: nuevo }); break;
     }
-    // Diario
-    case 'nuevaOp': state.form = opNueva(iso); guardarForm(); state.tab = 'diario'; render(); break;
-    case 'abrirOp': {
-      const o = state.operaciones.find((x) => x.uid === el.dataset.uid);
-      if (o) { state.form = JSON.parse(JSON.stringify(o)); guardarForm(); render(); } break;
+    // Operaciones
+    case 'nuevaOp': abrirNuevaOp(); break;
+    case 'editarOp': {
+      const o = opDe(el.dataset.uid); if (!o) break;
+      state.pantalla = { tipo: 'op', o: JSON.parse(JSON.stringify(o)), riesgoAuto: false, forzar: false, motivoForzado: '', activoOtro: !ACTIVOS.includes(o.activo) };
+      guardarPantalla(); render(); break;
     }
-    case 'cerrarOp': state.form = null; state.borrar = null; guardarForm(); render(); break;
-    case 'opTipo': state.form.tipo = v; guardarForm(); render(); break;
-    case 'opDir': state.form.direccion = v; guardarForm(); render(); break;
-    case 'opReglas': state.form.dentroReglas = state.form.dentroReglas === v ? '' : v; guardarForm(); render(); break;
-    case 'opCheck': { const id = el.dataset.id; state.form[id] = !state.form[id]; guardarForm(); render(); break; }
-    case 'opCuenta': {
-      const cs = state.form.cuentas || [];
-      state.form.cuentas = cs.includes(v) ? cs.filter((x) => x !== v) : cs.concat([v]);
-      guardarForm(); render(); break;
+    case 'gestionar': state.pantalla = { tipo: 'gestion', uid: el.dataset.uid, fecha: fechaISO(hoy()), accion: 'cierre parcial', pct: '', motivo: '', nota: '' }; guardarPantalla(); render(); break;
+    case 'cerrar': {
+      const o = opDe(el.dataset.uid); if (!o) break;
+      state.pantalla = { tipo: 'cierre', uid: o.uid, fechaCierre: fechaISO(hoy()), salida: '', resultadoR: '', rManual: false,
+        dentroReglas: o.dentroReglas || '', motivo: o.motivo || '', aprendizaje: o.aprendizaje || '' };
+      guardarPantalla(); render(); break;
     }
-    case 'opLinea': {
-      const g = state.form.gestion || '';
-      state.form.gestion = (g && !g.endsWith('\n') ? g + '\n' : g) + fechaISO(hoy()) + ': ';
-      guardarForm(); render();
-      const t = $('textarea[data-f="gestion"]'); if (t) { t.focus(); t.selectionStart = t.selectionEnd = t.value.length; }
-      break;
+    // Pantalla: operación
+    case 'pCancelar': cerrarPantalla(); break;
+    case 'pTipo':
+      p.o.tipo = v; p.o.cuentas = v === 'scalping' ? [CUENTA_SCALPING] : state.ajustes.cuentasSwing.slice();
+      recalcularRiesgo(p); guardarPantalla(); render(); break;
+    case 'pDir': p.o.direccion = v; guardarPantalla(); render(); break;
+    case 'pCuenta': {
+      const cs = p.o.cuentas || [];
+      p.o.cuentas = cs.includes(v) ? cs.filter((x) => x !== v) : CUENTAS.filter((c) => c === v || cs.includes(c));
+      recalcularRiesgo(p); guardarPantalla(); render(); break;
     }
-    case 'guardarOp': {
-      const o = state.form;
-      if (!String(o.activo || '').trim()) { alert('Falta el activo.'); break; }
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(o.fechaApertura || '')) { alert('Falta la fecha de apertura.'); break; }
-      o.activo = o.activo.trim();
-      guardarOperacion(JSON.parse(JSON.stringify(o)));
-      state.form = null; state.borrar = null; guardarForm(); render(); break;
+    case 'pCheck': { const id = el.dataset.id; p.o[id] = !p.o[id]; guardarPantalla(); render(); break; }
+    case 'peReglas': p.o.dentroReglas = p.o.dentroReglas === v ? '' : v; guardarPantalla(); render(); break;
+    case 'pGuardar': {
+      const val = validarOp(p); if (!val.puede) { pintarPantalla(); break; }
+      const o = p.o, nueva = !opDe(o.uid);
+      o.activo = String(o.activo).trim().toUpperCase();
+      if (nueva && val.blandos.length) {
+        o.dentroReglas = 'no';
+        o.motivo = 'Apertura: ' + val.blandos.join('; ') + ' — ' + String(p.motivoForzado).trim();
+      }
+      guardarOperacion(o);
+      if (p.candUid) { const c = state.candidatas.find((x) => x.uid === p.candUid); if (c) { c.estado = 'entrada'; guardarCandidata(c); } }
+      state.tab = 'operaciones'; cerrarPantalla(); break;
     }
-    case 'opQuitar': state.borrar = state.form.uid; render(); break;
-    case 'opQuitarNo': state.borrar = null; render(); break;
-    case 'opQuitarOk': {
-      const u = state.form.uid;
-      state.operaciones = state.operaciones.filter((x) => x.uid !== u); LS.set('operaciones', state.operaciones);
-      state.cola = state.cola.filter((c) => c.k !== 'op:' + u); LS.set('cola', state.cola);
-      state.form = null; state.borrar = null; guardarForm(); render(); break;
+    // Pantalla: gestión
+    case 'gAccion': p.accion = v; guardarPantalla(); render(); break;
+    case 'gMotivo': p.motivo = p.motivo === v ? '' : v; guardarPantalla(); render(); break;
+    case 'gGuardar': {
+      const o = opDe(p.uid); if (!o || !gestionValida(p)) break;
+      o.gestion = (String(o.gestion || '').trim() ? String(o.gestion).trim() + '\n' : '') + lineaGestion(p);
+      if (p.accion === 'break even') o.be = true;
+      guardarOperacion(o, ['gestion']); cerrarPantalla(); break;
     }
-    // Semana
+    // Pantalla: cierre
+    case 'cReglas': p.dentroReglas = p.dentroReglas === v ? '' : v; guardarPantalla(); render(); break;
+    case 'cGuardar': {
+      const o = opDe(p.uid); if (!o || !cierreValido(p)) break;
+      const campos = ['fechaCierre', 'resultadoR', 'dentroReglas', 'motivo', 'aprendizaje'];
+      if (num(p.salida) !== '') { o.gestion = (String(o.gestion || '').trim() ? String(o.gestion).trim() + '\n' : '') + `${p.fechaCierre}: cierre a ${p.salida}`; campos.push('gestion'); }
+      Object.assign(o, { fechaCierre: p.fechaCierre, resultadoR: p.resultadoR, dentroReglas: p.dentroReglas,
+        motivo: p.dentroReglas === 'no' ? String(p.motivo).trim() : (o.motivo || ''), aprendizaje: p.aprendizaje });
+      guardarOperacion(o, campos); cerrarPantalla(); break;
+    }
+    // Candidatas
     case 'sem': state.semanaSel = Math.min(ULTIMA_SEMANA, Math.max(1, semanaSel() + parseInt(el.dataset.d, 10))); render(); break;
     case 'semHoy': state.semanaSel = null; render(); break;
-    case 'candDir': borradores.cand.direccion = v; render(); break;
-    case 'addCand': {
-      const b = borradores.cand;
-      if (!String(b.activo || '').trim()) { alert('Falta el activo.'); break; }
-      guardarCandidata(Object.assign({ uid: uid(), fecha: fechaISO(domingoDeSemana(semanaSel())) }, b, { activo: b.activo.trim() }));
-      borradores.cand = null; render(); break;
+    case 'nuevaCand':
+      state.pantalla = { tipo: 'cand', c: { uid: uid(), fecha: fechaISO(domingoDeSemana(semanaSel())), activo: '', direccion: 'largo', zona: '', stop: '', tp1: '', estado: 'pendiente', notas: '' }, activoOtro: false };
+      guardarPantalla(); render(); break;
+    case 'editarCand': {
+      const c = state.candidatas.find((x) => x.uid === el.dataset.uid); if (!c) break;
+      state.pantalla = { tipo: 'cand', c: JSON.parse(JSON.stringify(c)), activoOtro: !ACTIVOS.includes(c.activo) }; guardarPantalla(); render(); break;
     }
-    case 'candEstado': {
-      const c = state.candidatas.find((x) => x.uid === el.dataset.uid);
-      if (c) { c.estado = v; guardarCandidata(c); render(); } break;
+    case 'candEstado': { const c = state.candidatas.find((x) => x.uid === el.dataset.uid); if (c) { c.estado = v; guardarCandidata(c); render(); } break; }
+    case 'convertir': {
+      const c = state.candidatas.find((x) => x.uid === el.dataset.uid); if (!c) break;
+      abrirNuevaOp({ activo: c.activo, direccion: c.direccion || 'largo', entrada: c.zona, stop: c.stop, tp1: c.tp1 }, c.uid); break;
+    }
+    case 'pcDir': p.c.direccion = v; guardarPantalla(); render(); break;
+    case 'pcEstado': p.c.estado = v; guardarPantalla(); render(); break;
+    case 'pcGuardar': {
+      if (!String(p.c.activo || '').trim()) break;
+      p.c.activo = String(p.c.activo).trim().toUpperCase(); guardarCandidata(p.c); cerrarPantalla(); break;
     }
     case 'addEst': {
-      const b = borradores.est;
-      guardarEstadoSemanal(Object.assign({ uid: uid(), fecha: fechaISO(domingoDeSemana(semanaSel())) }, b));
+      guardarEstadoSemanal(Object.assign({ uid: uid(), fecha: fechaISO(domingoDeSemana(semanaSel())) }, borradores.est));
       borradores.est = null; render(); break;
     }
     case 'traerCuentas': probarConexion(); break;
@@ -1007,11 +1358,15 @@ $('#view').addEventListener('click', (e) => {
     case 'btCheck': borradores.bt.checklist = v; render(); break;
     case 'addBt': {
       const b = borradores.bt;
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(b.fecha || '')) { alert('Falta la fecha del caso.'); break; }
-      guardarBacktest(Object.assign({ uid: uid() }, b));
-      borradores.bt = null; render(); break;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(b.fecha || '')) break;
+      guardarBacktest(Object.assign({ uid: uid() }, b)); borradores.bt = null; render(); break;
     }
     // Ajustes y sincronización
+    case 'ajCuenta': {
+      const cs = state.ajustes.cuentasSwing;
+      state.ajustes.cuentasSwing = cs.includes(v) ? cs.filter((x) => x !== v) : CUENTAS.filter((c) => c === v || cs.includes(c));
+      LS.set('ajustes', state.ajustes); render(); break;
+    }
     case 'sync': if (!configurado()) { state.tab = 'ajustes'; render(); } else { if (!state.cola.length) sync.error = ''; sincronizar(); } break;
     case 'cfgProbar': probarConexion(); break;
     case 'recuperar': recuperarDeLaHoja(); break;
@@ -1021,20 +1376,31 @@ $('#view').addEventListener('click', (e) => {
   }
 });
 
-// Escribir en un campo no repinta la vista: solo actualiza el estado y los ratios.
+// Escribir en un campo no repinta la vista: solo actualiza el estado y las partes vivas.
 function alEscribir(t) {
-  const o = t.dataset.o, f = t.dataset.f;
+  const o = t.dataset.o, f = t.dataset.f, p = state.pantalla;
   if (o && f) {
-    if (o === 'form' && state.form) {
-      state.form[f] = t.value; guardarForm();
-      const r = $('#ratioOp'); if (r) r.innerHTML = tagRatio(ratioDe(state.form));
+    if (p && (o === 'po' || o === 'pc' || o === 'p')) {
+      const obj = o === 'po' ? p.o : o === 'pc' ? p.c : p;
+      obj[f] = t.value;
+      if (o === 'po' && f === 'riesgo') p.riesgoAuto = false;
+      if (o === 'po' && (f === 'fechaApertura')) recalcularRiesgo(p);
+      if (p.tipo === 'cierre' && f === 'salida' && !p.rManual) {
+        const op = opDe(p.uid), rs = op ? rDeSalida(op, p.salida) : null;
+        p.resultadoR = rs == null ? '' : fmtRiesgo(Math.round(rs * 100) / 100);
+        const campoR = $('#cR'); if (campoR) campoR.value = p.resultadoR;
+      }
+      if (p.tipo === 'cierre' && f === 'resultadoR') p.rManual = t.value.trim() !== '';
+      guardarPantalla(); pintarPantalla();
     } else if (o === 'reg') {
       guardarRegistro(fechaISO(fechaTab()), { [f]: t.value });
     } else if (borradores[o]) {
       borradores[o][f] = t.value;
-      const r = $('#ratioCand'); if (o === 'cand' && r) r.innerHTML = tagRatio(ratioCand(borradores.cand));
     }
     return true;
+  }
+  if (t.dataset.scalp != null) {
+    state.ajustes.checklistScalping[+t.dataset.scalp] = t.value; LS.set('ajustes', state.ajustes); return true;
   }
   if (t.id === 'cfgUrl' || t.id === 'cfgToken') {
     state.ajustes[t.id === 'cfgUrl' ? 'url' : 'token'] = t.value.trim(); LS.set('ajustes', state.ajustes); pintarSync(); return true;
@@ -1043,19 +1409,28 @@ function alEscribir(t) {
 }
 $('#view').addEventListener('input', (e) => { alEscribir(e.target); });
 $('#view').addEventListener('change', (e) => {
-  const t = e.target;
+  const t = e.target, p = state.pantalla;
+  if (t.dataset.activo && p) {
+    const obj = t.dataset.activo === 'po' ? p.o : p.c;
+    p.activoOtro = t.value === 'otro'; obj.activo = t.value === 'otro' ? '' : t.value;
+    guardarPantalla(); render();
+    if (p.activoOtro) { const x = $(`input[data-o="${t.dataset.activo}"][data-f="activo"]`); if (x) x.focus(); }
+    return;
+  }
+  if (t.id === 'pForzar' && p) { p.forzar = t.checked; guardarPantalla(); pintarPantalla(); return; }
   if (t.id === 'cfgFase') { state.ajustes.fase = parseInt(t.value, 10) || 0; LS.set('ajustes', state.ajustes); render(); return; }
   if (t.id === 'importFile') { leerCopia(t.files && t.files[0]); t.value = ''; return; }
   if (t.id === 'cfgUrl' || t.id === 'cfgToken') { sync.error = ''; sync.msgAjustes = null; sincronizar(); return; }
   alEscribir(t);
-  // Al salir de un campo del día, el cambio se encola.
   if (t.dataset.o === 'reg') encolarDia(fechaISO(fechaTab()), { [t.dataset.f]: t.value });
+  if (t.dataset.o === 'po' && t.dataset.f === 'fechaApertura') render();   // el aviso de viernes depende de la fecha
 });
+$('#view').addEventListener('toggle', (e) => { const d = e.target; if (d.dataset && d.dataset.k) abiertosDet[d.dataset.k] = d.open; }, true);
 $('#view').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && e.target.matches('input[data-o="reg"]')) { e.preventDefault(); e.target.blur(); }
 });
 
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { render(); sincronizar(); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { if (!state.pantalla) render(); sincronizar(); } });
 window.addEventListener('online', () => sincronizar());
 
 render();
