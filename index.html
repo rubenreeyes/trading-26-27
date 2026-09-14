@@ -267,7 +267,7 @@ const CHECKLIST_GESTION = [
 
 const REGLAS_RIESGO = [
   '1 % por operación con una o dos posiciones abiertas; 0,75 % a partir de la tercera. En challenge, 1 % siempre y máximo tres posiciones.',
-  'Riesgo abierto máximo por cuenta 2,25 % (3 % en challenge). Nunca cuatro posiciones. Una posición en break even deja de contar.',
+  'Riesgo abierto máximo por cuenta 2,75 % (1 % + 1 % + 0,75 %) y 3 % en challenge. Nunca cuatro posiciones. Una posición en break even no cuenta.',
   'El riesgo en dinero es siempre el mismo: el tamaño se adapta al stop, nunca al revés.',
   'Freno diario: con -1,5 % en el día no se abre nada nuevo; lo abierto se gestiona con normalidad.',
   'Freno semanal: con -3 % en la semana solo se gestiona lo abierto; el domingo se revisa antes de volver a abrir.',
@@ -311,7 +311,7 @@ const RIESGO = {
   tercera: 0.75,           // a partir de la tercera
   scalping: 0.5,           // cuenta de scalping: 0,25-0,5 %
   maxPosiciones: 3,        // nunca cuatro
-  abiertoMax: 2.25,        // riesgo abierto por cuenta
+  abiertoMax: 2.75,        // riesgo abierto por cuenta fuera de challenge (1 + 1 + 0,75)
   abiertoChallenge: 3,     // en challenge
   scalpingDia: 2           // máximo de operaciones de scalping al día
 };
