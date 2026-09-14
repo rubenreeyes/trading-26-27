@@ -171,6 +171,30 @@ body.enpantalla nav.tabbar,body.enpantalla header.top{display:none}
 .rbar.alto span{background:var(--danger)}
 .rcuenta{padding:8px 0;border-top:1px solid var(--line)} .rcuenta:first-of-type{border-top:0}
 textarea.corto{min-height:60px}
+/* Domingo, Cuentas, Métricas y Más */
+.pasos{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.paso{background:var(--bg);border:1px solid var(--line);color:var(--muted);padding:6px 10px;min-height:34px;font-size:13px;font-weight:600;border-radius:999px}
+.paso.hecho{color:var(--ok);border-color:var(--ok)}
+.paso.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.navpasos{display:flex;gap:10px;margin-bottom:12px}
+.navpasos .btn{flex:1}
+.stats.mini{gap:8px;margin:8px 0 4px}
+.stats.mini .stat{padding:10px}
+.stats.mini .stat .v{font-size:19px}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin-top:8px;font-size:14px}
+.kv div span{display:block;font-size:12px;color:var(--muted);font-weight:600}
+table.met{font-size:13px;white-space:nowrap}
+table.met th,table.met td{padding:7px 6px;text-align:right}
+table.met th:first-child,table.met td:first-child{text-align:left;position:sticky;left:0;background:var(--card);z-index:1}
+table.met td.ok{color:var(--ok);font-weight:700} table.met td.ko{color:var(--danger);font-weight:700} table.met td.av{color:var(--warn);font-weight:700}
+table.met tr.actual td{background:var(--accent-soft)}
+table.met tr.actual td:first-child{background:var(--accent-soft)}
+.menu{display:flex;align-items:center;gap:14px;width:100%;background:var(--card);color:var(--text);border:1px solid var(--line);
+  border-radius:var(--radius);padding:14px;margin-bottom:10px;text-align:left;font-weight:400;justify-content:flex-start}
+.menu .ic{font-size:26px;line-height:1} .menu b{display:block;font-size:16px} .menu span.s{font-size:13px;color:var(--muted)}
+.menu .fl{margin-left:auto;color:var(--muted);font-size:20px}
+.volver{margin:-4px 0 8px -8px}
+.cal div{margin-top:3px}
 @media (max-width:359px){ .f3{grid-template-columns:1fr 1fr} }
 </style>
 </head>
@@ -326,6 +350,28 @@ const CHECKLIST_SCALPING_DEFECTO = ['Condición 1', 'Condición 2', 'Condición 
 
 // Botones de "Gestionar": qué se hace y por qué (checklist de gestión).
 const ACCIONES_GESTION = ['cierre parcial', 'break even', 'stop movido', 'otra'];
+// Cuentas que entran en el estado semanal del domingo (columna Estado de la hoja Cuentas).
+const ESTADOS_CUENTA_ACTIVA = ['activa', 'en curso'];
+const MONEDA_CUENTA = { 'Propia': '€' };   // el resto, en dólares
+const FASES_CUENTA = ['challenge', 'earning', 'propia', 'prevista'];
+const ESTADOS_CUENTA = ['activa', 'en curso', 'prevista', 'cerrada'];
+
+// Revisión mensual (primer domingo): condiciones para comprar el siguiente challenge, las cuatro a la vez.
+const CONDICIONES_EXPANSION = [
+  { id: 'aprobado', t: 'El challenge anterior está aprobado' },
+  { id: 'sinFreno', t: 'Sin freno semanal activo ni en las dos últimas semanas' },
+  { id: 'coste', t: 'El coste sale de retiros ya cobrados' },
+  { id: 'unChallenge', t: 'Solo un challenge en curso' }
+];
+const DECISIONES_EXPANSION = ['comprar', 'esperar', 'cambiar de firma'];
+
+// Objetivos de las métricas (hoja Resumen): 4 de 5 en 7:30 y 15:30; 100 % dentro de reglas.
+const OBJETIVO_SESIONES = 4;
+const OBJETIVO_BACKTEST = 100;   // casos de replay de la fase 1 de scalping
+
+// Días de la semana al principio de una línea del calendario económico ("mié 20:00 FOMC").
+const RE_DIAS = [/^lun/i, /^mar(?!zo)/i, /^mi[eé]/i, /^jue/i, /^vie/i, /^s[aá]b/i, /^dom/i];
+
 const MOTIVOS_GESTION = ['movimiento brusco a favor', 'va por 1:3 (operación grande)', 'noticia de alto impacto', 'cierre por calendario', 'exposición de fin de semana'];
 
 const OBJETIVOS = [
@@ -353,6 +399,16 @@ const LS = {
 
 // Números escritos con coma o con punto. '' cuando no hay nada que escribir.
 function num(v) { const s = String(v == null ? '' : v).replace(',', '.').trim(); if (s === '') return ''; const n = parseFloat(s); return isNaN(n) ? '' : n; }
+function numDinero(v) {
+  const t = String(v == null ? '' : v).trim().replace(/\s|\$|€/g, '');
+  if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) return num(t.replace(/\./g, ''));
+  return num(t);
+}
+function fmtDinero(v, cuenta) {
+  const n = numDinero(v); if (n === '') return '—';
+  const [e, dec] = Math.abs(n).toFixed(Number.isInteger(n) ? 0 : 2).split('.');
+  return (n < 0 ? '-' : '') + e.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + (dec ? ',' + dec : '') + ' ' + (MONEDA_CUENTA[cuenta] || '$');
+}
 function fmt(n, d) { return Number(n).toFixed(d == null ? 2 : d).replace('.', ','); }
 
 // --- Fechas ----------------------------------------------------------------
@@ -374,10 +430,17 @@ function semanaPlan(d) { return Math.max(1, Math.min(ULTIMA_SEMANA, diaSemana(d)
 function domingoDeSemana(w) { return sumarDias(parseISO(CURSO_INICIO), 7 * (w - 1) - 1); }   // domingo previo al lunes de esa semana
 
 // --- Estado ----------------------------------------------------------------
+// Barra inferior: cinco botones. Cuentas, Métricas, Plan y Ajustes se abren desde "Más".
 const TABS = [
   { id: 'hoy', n: 'Hoy', ic: '📅' }, { id: 'operaciones', n: 'Operaciones', ic: '📈' },
-  { id: 'candidatas', n: 'Candidatas', ic: '🎯' }, { id: 'plan', n: 'Plan', ic: '📋' },
-  { id: 'ajustes', n: 'Ajustes', ic: '⚙️' },
+  { id: 'candidatas', n: 'Candidatas', ic: '🎯' }, { id: 'domingo', n: 'Domingo', ic: '🗓️' },
+  { id: 'mas', n: 'Más', ic: '☰' },
+];
+const TABS_MAS = [
+  { id: 'cuentas', n: 'Cuentas', ic: '💼', s: 'Límites, fechas y último estado semanal' },
+  { id: 'metricas', n: 'Métricas', ic: '📊', s: 'Semanas y meses del curso' },
+  { id: 'plan', n: 'Plan', ic: '📋', s: 'Fases de scalping y referencia' },
+  { id: 'ajustes', n: 'Ajustes', ic: '⚙️', s: 'Conexión, backtest y copia de seguridad' },
 ];
 const state = {
   tab: LS.get('tab', 'hoy'),
@@ -393,6 +456,8 @@ const state = {
   pantalla: LS.get('pantalla', null),         // formulario de pantalla completa abierto
   semanaSel: null,                            // semana elegida en Candidatas
   pasar: null,                                // pregunta del domingo: {fecha, uids}
+  domingo: LS.get('domingo', {}),             // { 'AAAA-MM-DD' (domingo): {paso, cuentas, revision, calendario, mensual} }
+  cuentasEdit: LS.get('cuentasEdit', {}),     // { cuenta: {campo: valor} } cambios hechos aquí sobre la hoja Cuentas
 };
 if (!state.ajustes || typeof state.ajustes !== 'object') state.ajustes = {};
 const A0 = { url: '', token: '', fase: 0, cuentasSwing: CUENTAS_SWING_DEFECTO.slice(), checklistScalping: CHECKLIST_SCALPING_DEFECTO.slice() };
@@ -401,9 +466,10 @@ if (!(state.ajustes.fase >= 0 && state.ajustes.fase <= 4)) state.ajustes.fase = 
 if (!Array.isArray(state.ajustes.cuentasSwing)) state.ajustes.cuentasSwing = CUENTAS_SWING_DEFECTO.slice();
 if (!Array.isArray(state.ajustes.checklistScalping) || state.ajustes.checklistScalping.length !== 5) state.ajustes.checklistScalping = CHECKLIST_SCALPING_DEFECTO.slice();
 ['operaciones', 'candidatas', 'estadoSemanal', 'backtest', 'cuentas', 'cola'].forEach((k) => { if (!Array.isArray(state[k])) state[k] = []; });
-if (!TABS.some((t) => t.id === state.tab)) state.tab = 'hoy';
-if (state.pantalla && !['op', 'gestion', 'cierre', 'cand'].includes(state.pantalla.tipo)) state.pantalla = null;
-const borradores = { est: null, bt: null };   // formularios en línea de Candidatas y Plan (no se guardan)
+['domingo', 'cuentasEdit'].forEach((k) => { if (!state[k] || typeof state[k] !== 'object' || Array.isArray(state[k])) state[k] = {}; });
+if (!TABS.concat(TABS_MAS).some((t) => t.id === state.tab)) state.tab = 'hoy';
+if (state.pantalla && !['op', 'gestion', 'cierre', 'cand', 'cuenta'].includes(state.pantalla.tipo)) state.pantalla = null;
+const borradores = { est: null, bt: null };   // formularios en línea de Candidatas y Ajustes (no se guardan)
 
 function guardar() { LS.set('tab', state.tab); }
 function guardarPantalla() { LS.set('pantalla', state.pantalla); }
@@ -563,7 +629,7 @@ function guardarCandidata(c) {
 }
 function guardarEstadoSemanal(x) {
   state.estadoSemanal.unshift(x); LS.set('estadoSemanal', state.estadoSemanal);
-  encolar('est:' + x.uid, 'estadoSemanal', { fecha: x.fecha || '', cuenta: x.cuenta || '', balance: num(x.balance),
+  encolar('est:' + x.uid, 'estadoSemanal', { fecha: x.fecha || '', cuenta: x.cuenta || '', balance: numDinero(x.balance),
     drawdown: num(x.drawdown), diasRentables: num(x.diasRentables), proximoRetiro: x.proximoRetiro || '',
     progreso: num(x.progreso), notas: x.notas || '' }, x.uid);
 }
@@ -575,7 +641,7 @@ function guardarBacktest(x) {
 
 // --- Riesgo (solo informativo, calculado en local) --------------------------
 function faseCuenta(c) {
-  const f = state.cuentas.find((x) => String(x.cuenta).trim() === c);
+  const f = cuentasEfectivas().find((x) => String(x.cuenta).trim() === c);
   return String((f && f.fase) || FASE_CUENTA_DEFECTO[c] || '').trim().toLowerCase();
 }
 function limiteCuenta(c) { return faseCuenta(c) === 'challenge' ? RIESGO.abiertoChallenge : RIESGO.abiertoMax; }
@@ -642,15 +708,94 @@ function validarOp(p) {
 }
 
 // --- Contadores -------------------------------------------------------------
-function contarSemana(lunes) {
-  const c = { rev730: 0, ny1530: 0, formacion: 0 };
+// Métricas con las mismas fórmulas que la hoja Resumen:
+// - días: los siete días de la semana (o del mes) que tienen fila en Dias;
+// - operaciones "abiertas" en la semana/mes = por fecha de apertura; cumplimiento = dentro de reglas "sí" sobre esas;
+// - R cerradas y aciertos = por fecha de cierre.
+function semanaDeISO(v) { const t = String(v || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(t) ? semanaCurso(parseISO(t)) : null; }
+function metricasSemana(w) {
+  const lunes = sumarDias(parseISO(CURSO_INICIO), 7 * (w - 1));
+  const m = { w, lunes, rev730: 0, ny1530: 0, formacion: 0, planificacion: 0, diasReglas: 0, frenos: 0, abiertas: 0, dentro: 0, cerradas: 0, R: 0, cumplimiento: null };
   for (let i = 0; i < 7; i++) {
-    const d = sumarDias(lunes, i), r = regDe(fechaISO(d));
-    if (i <= 4) { if (r.rev730) c.rev730++; if (r.ny1530) c.ny1530++; }
-    if (i === 1 || i === 3) { if (r.formacion) c.formacion++; }
+    const d = sumarDias(lunes, i); if (!enCurso(d)) continue;
+    const r = regDe(fechaISO(d));
+    if (r.rev730) m.rev730++; if (r.ny1530) m.ny1530++; if (r.formacion) m.formacion++; if (r.planificacion) m.planificacion++;
+    if (r.reglas === 'sí') m.diasReglas++; if (r.freno) m.frenos++;
   }
-  return c;
+  state.operaciones.forEach((o) => {
+    if (semanaDeISO(o.fechaApertura) === w) { m.abiertas++; if (o.dentroReglas === 'sí') m.dentro++; }
+    if (String(o.fechaCierre || '') !== '' && semanaDeISO(o.fechaCierre) === w) { m.cerradas++; const r = num(o.resultadoR); if (r !== '') m.R += r; }
+  });
+  m.cumplimiento = m.abiertas ? m.dentro / m.abiertas : null;
+  return m;
 }
+function metricasMes(ym) {
+  const m = { ym, swing: { n: 0, R: 0, ac: 0 }, scalping: { n: 0, R: 0, ac: 0 }, abiertas: 0, dentro: 0, rev730: 0, ny1530: 0, formacion: 0, cumplimiento: null };
+  state.operaciones.forEach((o) => {
+    const cierre = String(o.fechaCierre || '');
+    if (cierre !== '' && cierre.slice(0, 7) === ym && m[o.tipo]) { const t = m[o.tipo], r = num(o.resultadoR); t.n++; if (r !== '') { t.R += r; if (r > 0) t.ac++; } }
+    if (String(o.fechaApertura || '').slice(0, 7) === ym) { m.abiertas++; if (o.dentroReglas === 'sí') m.dentro++; }
+  });
+  Object.keys(state.registro).forEach((iso) => {
+    if (iso.slice(0, 7) !== ym || !enCurso(parseISO(iso))) return;
+    const r = state.registro[iso]; if (r.rev730) m.rev730++; if (r.ny1530) m.ny1530++; if (r.formacion) m.formacion++;
+  });
+  m.cumplimiento = m.abiertas ? m.dentro / m.abiertas : null;
+  ['swing', 'scalping'].forEach((k) => { m[k].aciertos = m[k].n ? m[k].ac / m[k].n : null; });
+  return m;
+}
+function mesesCurso() {
+  const out = [], fin = fechaISO(hoy()).slice(0, 7) < CURSO_FIN.slice(0, 7) ? fechaISO(hoy()).slice(0, 7) : CURSO_FIN.slice(0, 7);
+  for (let d = parseISO(CURSO_INICIO.slice(0, 7) + '-01'); fechaISO(d).slice(0, 7) <= fin; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) out.push(fechaISO(d).slice(0, 7));
+  return out;
+}
+function nombreMes(ym) { const d = parseISO(ym + '-01'); return cap(d.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })); }
+function pct(x) { return x == null ? '—' : Math.round(100 * x) + ' %'; }
+function fmtR(r) { return (r > 0 ? '+' : '') + fmt(r, 2); }
+
+// --- Cuentas (hoja Cuentas con los cambios hechos aquí) ---------------------
+const CAMPOS_CUENTA = ['firma', 'producto', 'balance', 'fase', 'perdidaDiaria', 'perdidaMaxima', 'objetivo', 'fechaLimite', 'estado', 'uso', 'notas'];
+function cuentasEfectivas() { return state.cuentas.map((c) => Object.assign({}, c, state.cuentasEdit[String(c.cuenta).trim()] || {})); }
+function cuentaActiva(c) { return ESTADOS_CUENTA_ACTIVA.includes(String(c.estado || '').trim().toLowerCase()); }
+// Fecha de una celda leída de la hoja: texto AAAA-MM-DD, fecha ISO con hora (celda de tipo fecha) o dd/mm/aaaa.
+function fechaDeHoja(v) {
+  const t = String(v == null ? '' : v).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(t)) { const d = new Date(t); return isNaN(d) ? '' : fechaISO(d); }
+  const m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  return m ? m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0') : '';
+}
+function textoPlazo(iso) {
+  if (!iso) return '';
+  const n = Math.round((parseISO(iso) - hoy()) / 86400000);
+  return n > 1 ? `quedan ${n} días` : n === 1 ? 'queda 1 día' : n === 0 ? 'vence hoy' : `vencida hace ${-n} día${n === -1 ? '' : 's'}`;
+}
+function ultimoEstado(cuenta) {
+  return state.estadoSemanal.filter((x) => x.cuenta === cuenta).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)))[0] || null;
+}
+function progresoCalculado(c, balance) {
+  const b = numDinero(balance), ini = numDinero(c.balance), obj = numDinero(c.objetivo);
+  return b === '' || ini === '' || !(obj > 0) ? null : Math.round(1000 * (b - ini) / obj) / 10;
+}
+
+// --- Domingo --------------------------------------------------------------
+// El asistente trabaja sobre el domingo de hoy o, entre semana, sobre el último.
+function domingoRef() { const d = hoy(); return sumarDias(d, diaSemana(d) === 6 ? 0 : -(diaSemana(d) + 1)); }
+function esPrimerDomingo(d) { return diaSemana(d) === 6 && d.getDate() <= 7; }
+function mesAnterior(d) { const x = new Date(d.getFullYear(), d.getMonth() - 1, 1); return fechaISO(x).slice(0, 7); }
+function datosDomingo(iso) {
+  if (!state.domingo[iso]) state.domingo[iso] = { paso: 0, cuentas: {}, revision: '', calendario: '', mensual: { errores: ['', '', ''], cond: {}, decision: '', notas: '' } };
+  return state.domingo[iso];
+}
+function guardarDomingo() { LS.set('domingo', state.domingo); }
+function pasosDomingo(d) {
+  const p = [{ id: 'cuentas', t: 'Estado de cuentas' }, { id: 'revision', t: 'Revisión de la semana' }];
+  if (esPrimerDomingo(d)) p.push({ id: 'mensual', t: 'Revisión mensual' });
+  return p.concat([{ id: 'calendario', t: 'Calendario económico' }, { id: 'candidatas', t: 'Candidatas' }, { id: 'hecha', t: 'Planificación hecha' }]);
+}
+// Calendario de la semana en curso (el que se escribió el domingo que la planifica).
+function calendarioDe(d) { return ((state.domingo[fechaISO(domingoDeSemana(semanaPlan(d)))] || {}).calendario || '').trim(); }
+
 function cumplimientoMes(ref) {
   let marcados = 0, si = 0;
   for (let d = new Date(ref.getFullYear(), ref.getMonth(), 1); d <= ref; d = sumarDias(d, 1)) {
@@ -706,7 +851,14 @@ async function recuperarDeLaHoja() {
     LS.set('candidatas', state.candidatas);
     const cu = await llamarScript('GET', { que: 'cuentas' });
     state.cuentas = cu.filas || []; LS.set('cuentas', state.cuentas);
-    sync.msgAjustes = { texto: `Recuperado de la hoja: ${(dias.filas || []).length} día(s), ${(ops.filas || []).length} operación(es), ${(cand.filas || []).length} candidata(s) y ${state.cuentas.length} cuenta(s).` };
+    const est = await llamarScript('GET', { que: 'estado' });
+    const pendientesEst = state.estadoSemanal.filter((x) => state.cola.some((c) => c.k === 'est:' + x.uid));
+    state.estadoSemanal = pendientesEst.concat((est.filas || []).map((f) => ({
+      uid: 'hoja-est-' + f.fila, fila: f.fila, fecha: fechaDeHoja(f.fecha), cuenta: String(f.cuenta || '').trim(), balance: f.balance,
+      drawdown: f.drawdown, diasRentables: f.diasRentables, proximoRetiro: fechaDeHoja(f.proximoRetiro), progreso: f.progreso, notas: String(f.notas || '')
+    })).reverse());
+    LS.set('estadoSemanal', state.estadoSemanal);
+    sync.msgAjustes = { texto: `Recuperado de la hoja: ${(dias.filas || []).length} día(s), ${(ops.filas || []).length} operación(es), ${(cand.filas || []).length} candidata(s), ${state.cuentas.length} cuenta(s) y ${(est.filas || []).length} estado(s) semanales.` };
   } catch (e) { sync.msgAjustes = { texto: 'Error: ' + errorLegible(e), err: true }; }
   render();
 }
@@ -788,6 +940,20 @@ function avisosHoyHTML() {
   if (hayNoticias()) h += `<div class="aviso">${esc(AVISO_NOTICIAS)}</div>`;
   return h;
 }
+function calendarioHoyHTML(d) {
+  const txt = calendarioDe(d); if (!txt) return '';
+  const re = RE_DIAS[diaSemana(d)];
+  return `<div class="aviso info cal"><b>Noticias de alto impacto de la semana</b>${txt.split('\n').map((l) => l.trim()).filter(Boolean)
+    .map((l) => re.test(l) ? `<div class="b">▸ ${esc(l)} <span class="tag">hoy</span></div>` : `<div>${esc(l)}</div>`).join('')}</div>`;
+}
+function confirmPasarHTML(iso, d) {
+  if (!state.pasar || state.pasar.fecha !== iso) return '';
+  const cs = state.pasar.uids.map((u) => state.candidatas.find((c) => c.uid === u)).filter(Boolean);
+  return `<div class="confirm" style="margin:10px 0 12px"><b>${cs.length} candidata${cs.length > 1 ? 's' : ''} de la semana pasada sin entrada</b>
+    <div class="small" style="margin-top:4px">${cs.map((c) => esc(c.activo + ' · ' + c.direccion)).join(', ')}</div>
+    <div class="small muted" style="margin-top:4px">¿Pasan a la semana ${semanaPlan(d)}? Se reevalúan como cualquier otra.</div>
+    <div class="row"><button class="btn" data-act="pasarSi">Sí, pasarlas</button><button class="btn ghost" data-act="pasarNo">No</button></div></div>`;
+}
 function viewHoy() {
   const d = fechaTab(), real = hoy(), iso = fechaISO(d), dow = diaSemana(d), w = semanaCurso(d);
   const reg = regDe(iso), fase = faseActual();
@@ -807,7 +973,7 @@ function viewHoy() {
     ${dif !== 0 ? `<button class="btn ghost block" data-act="diaHoy">Volver a hoy</button>` : ''}
     ${syncHTML()}</div>`;
 
-  const sem = contarSemana(lunesDe(real)), mes = cumplimientoMes(real);
+  const sem = metricasSemana(semanaCurso(real)), mes = cumplimientoMes(real);
   h += `<div class="stats">
     <div class="stat"><div class="l">Esta semana</div>
       <div class="v">7:30 ${sem.rev730}/${OBJETIVO_SEMANA.rev730}</div>
@@ -817,7 +983,7 @@ function viewHoy() {
       <div class="muted small">${mes.pct == null ? 'sin días marcados aún' : `${mes.si} de ${mes.marcados} días con reglas marcadas`}</div></div></div>`;
 
   if (dow <= 4) {
-    h += tarjetaDia(iso, 'rev730', 'Revisión', '7:30', `<ol class="pts">${CHECKLIST_730.map((t) => `<li>${esc(t)}</li>`).join('')}</ol>${avisosHoyHTML()}`, reg);
+    h += tarjetaDia(iso, 'rev730', 'Revisión', '7:30', `<ol class="pts">${CHECKLIST_730.map((t) => `<li>${esc(t)}</li>`).join('')}</ol>${calendarioHoyHTML(d)}${avisosHoyHTML()}`, reg);
     h += tarjetaDia(iso, 'ny1530', 'Nueva York', '15:30',
       `<ol class="pts">${CHECKLIST_NY.map((t) => `<li>${esc(t)}</li>`).join('')}</ol>
        <div class="sep"></div>
@@ -835,14 +1001,8 @@ function viewHoy() {
   if (dow === 6) {
     h += tarjetaDia(iso, 'planificacion', 'Planificación de la semana', PLANIFICACION.hora,
       `<ol class="pts">${PLANIFICACION.puntos.map((t) => `<li>${esc(t)}</li>`).join('')}</ol>
-       <button class="btn sec block" data-tab="candidatas" style="margin-top:8px">Ir a las candidatas →</button>`, reg);
-    if (state.pasar && state.pasar.fecha === iso) {
-      const cs = state.pasar.uids.map((u) => state.candidatas.find((c) => c.uid === u)).filter(Boolean);
-      h += `<div class="confirm" style="margin:-4px 0 12px"><b>${cs.length} candidata${cs.length > 1 ? 's' : ''} de la semana pasada sin entrada</b>
-        <div class="small" style="margin-top:4px">${cs.map((c) => esc(c.activo + ' · ' + c.direccion)).join(', ')}</div>
-        <div class="small muted" style="margin-top:4px">¿Pasan a la semana ${semanaPlan(d)}? Se reevalúan como cualquier otra.</div>
-        <div class="row"><button class="btn" data-act="pasarSi">Sí, pasarlas</button><button class="btn ghost" data-act="pasarNo">No</button></div></div>`;
-    }
+       <button class="btn block" data-tab="domingo" style="margin-top:8px">Abrir el asistente del domingo →</button>`, reg);
+    h += confirmPasarHTML(iso, d);
   }
   if (dow === 5) h += `<div class="card"><h3>Sábado</h3><p class="small">Sin rutina de trading. Las posiciones abiertas se mantienen según plan: el stop ya lleva el riesgo.</p></div>`;
 
@@ -1041,7 +1201,7 @@ function viewPantallaCand(p) {
 }
 function viewPantalla() {
   const p = state.pantalla;
-  return { op: viewPantallaOp, gestion: viewPantallaGestion, cierre: viewPantallaCierre, cand: viewPantallaCand }[p.tipo](p);
+  return { op: viewPantallaOp, gestion: viewPantallaGestion, cierre: viewPantallaCierre, cand: viewPantallaCand, cuenta: viewPantallaCuenta }[p.tipo](p);
 }
 // Repinta solo las partes vivas de la pantalla (ratio, avisos, botón) sin perder el foco.
 function pintarPantalla() {
@@ -1117,8 +1277,8 @@ function viewCandidatas() {
 }
 
 // --- Pestaña Plan -----------------------------------------------------------
-function resumenBacktest() {
-  const xs = state.backtest, rs = xs.map((x) => num(x.resultadoR)).filter((v) => v !== '');
+function resumenBacktest(estrategia) {
+  const xs = state.backtest.filter((x) => !estrategia || x.estrategia === estrategia), rs = xs.map((x) => num(x.resultadoR)).filter((v) => v !== '');
   const total = rs.reduce((a, b) => a + b, 0);
   let racha = 0, peor = 0;
   xs.slice().reverse().forEach((x) => { const r = num(x.resultadoR); if (r !== '' && r < 0) { racha++; peor = Math.max(peor, racha); } else if (r !== '') racha = 0; });
@@ -1126,29 +1286,13 @@ function resumenBacktest() {
   return { n: xs.length, total, media: rs.length ? total / rs.length : null, peor, ok };
 }
 function viewPlan() {
-  const fase = faseActual(), b = borradores.bt || (borradores.bt = { estrategia: 'scalping', activo: 'XAUUSD', direccion: 'largo', checklist: 'sí', resultadoR: '', notas: '', fecha: fechaISO(hoy()) });
-  const rb = resumenBacktest();
-  let h = `<div class="card"><h3>Fases del scalping</h3>
+  const fase = faseActual();
+  let h = volverMas() + `<div class="card"><h3>Fases del scalping</h3>
     ${FASES.map((f) => `<div class="fase ${f.n === fase.n ? 'on' : ''}">
       <div class="row"><b>${esc(f.nombre)}</b><span class="muted small">${esc(f.cuando)}</span></div>
       <div class="small">${esc(f.tarea)}</div>
       ${f.paso ? `<div class="muted small">Paso: ${esc(f.paso)}</div>` : ''}</div>`).join('')}
     <p class="small muted" style="margin-top:10px">La fase activa se cambia en Ajustes y se escribe en la hoja al marcar cada día.</p></div>`;
-
-  h += `<div class="card"><h3>Backtest</h3>
-    <div class="stats" style="margin-bottom:10px">
-      <div class="stat"><div class="l">Casos</div><div class="v">${rb.n}</div><div class="muted small">${rb.ok} con checklist</div></div>
-      <div class="stat ${rb.total >= 0 ? 'good' : 'bad'}"><div class="l">Resultado</div><div class="v">${rb.n ? fmt(rb.total, 2) + ' R' : '—'}</div>
-        <div class="muted small">${rb.media == null ? 'sin casos' : 'media ' + fmt(rb.media, 2) + ' R · peor racha ' + rb.peor}</div></div></div>
-    <div class="f2">${campo('Fecha del caso', inpFecha('bt', 'fecha', b.fecha))}
-      ${campo('Resultado (R)', inpNum('bt', 'resultadoR', b.resultadoR, '-1'))}</div>
-    ${campo('Estrategia', seg('btEstr', b.estrategia, ['swing', 'scalping']))}
-    <div class="f2">${campo('Activo', inp('bt', 'activo', b.activo, 'XAUUSD', 'text', 'autocapitalize="characters" autocomplete="off"'))}
-      ${campo('Dirección', `<select data-o="bt" data-f="direccion"><option value="largo" ${b.direccion === 'largo' ? 'selected' : ''}>largo</option><option value="corto" ${b.direccion === 'corto' ? 'selected' : ''}>corto</option></select>`)}</div>
-    ${campo('Checklist OK', seg('btCheck', b.checklist, [{ v: 'sí', n: 'Sí', cls: 'si' }, { v: 'no', n: 'No', cls: 'no' }]))}
-    ${campo('Notas', inp('bt', 'notas', b.notas, ''))}
-    <button class="btn block" data-act="addBt" style="margin-top:12px">Añadir caso</button>
-    <p class="small muted" style="margin-top:8px">Criterio de la fase 1: 100 casos con esperanza positiva descontando costes y no más de 8 pérdidas seguidas.</p></div>`;
 
   h += `<div class="card"><h3>Referencia</h3>
     <details><summary>Checklist de entrada</summary><ol class="pts">${CHECKLIST_ENTRADA.map((c) => `<li><b>${esc(c.corto)}.</b> ${esc(c.texto)}</li>`).join('')}</ol></details>
@@ -1168,7 +1312,7 @@ function viewPlan() {
 // --- Pestaña Ajustes --------------------------------------------------------
 function viewAjustes() {
   const a = state.ajustes, m = sync.msgAjustes, mc = sync.msgCopia, imp = sync.importPendiente;
-  let h = `<div class="card"><h2>Hoja "Registro Trading 26-27"</h2>
+  let h = volverMas() + `<div class="card"><h2>Hoja "Registro Trading 26-27"</h2>
     <p class="small muted">Sigue <b>apps-script/INSTALAR.md</b> del repositorio para crear el script. La URL y el token se guardan solo en este móvil, no en el código.</p>
     <div class="field"><label for="cfgUrl">URL del Apps Script (termina en /exec)</label>
       <input type="url" id="cfgUrl" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(a.url)}" placeholder="https://script.google.com/macros/s/…/exec"></div>
@@ -1183,6 +1327,18 @@ function viewAjustes() {
     <p class="small muted">Se escribe en la columna "Fase scalping" al marcar cada día.</p>
     <div class="field"><select id="cfgFase">${FASES.map((f) => `<option value="${f.n}" ${a.fase === f.n ? 'selected' : ''}>${esc(f.nombre)} · ${esc(f.cuando)}</option>`).join('')}</select></div>
     <p class="small">${esc(faseActual().tarea)}</p></div>`;
+  const b = borradores.bt || (borradores.bt = { estrategia: 'scalping', activo: 'XAUUSD', direccion: 'largo', checklist: 'sí', resultadoR: '', notas: '', fecha: fechaISO(hoy()) });
+  const bs = resumenBacktest('scalping'), bw = resumenBacktest('swing');
+  h += `<div class="card"><h2>Backtest</h2>
+    <p class="b" style="margin:4px 0 0">Casos de scalping: ${bs.n} / ${OBJETIVO_BACKTEST}${bs.media == null ? '' : ` · R medio ${fmtR(bs.media)}`}</p>
+    <p class="small muted" style="margin:2px 0 0">${bs.n ? `Peor racha: ${bs.peor} pérdida${bs.peor === 1 ? '' : 's'} seguida${bs.peor === 1 ? '' : 's'} (máximo 8) · ` : ''}${bw.n} caso${bw.n === 1 ? '' : 's'} de swing</p>
+    <div class="f2">${campo('Fecha del caso', inpFecha('bt', 'fecha', b.fecha))}${campo('Resultado (R)', inpNum('bt', 'resultadoR', b.resultadoR, '-1'))}</div>
+    ${campo('Estrategia', seg('btEstr', b.estrategia, ['swing', 'scalping']))}
+    <div class="f2">${campo('Activo', inp('bt', 'activo', b.activo, 'XAUUSD', 'text', 'autocapitalize="characters" autocomplete="off"'))}
+      ${campo('Dirección', seg('btDir', b.direccion, ['largo', 'corto']))}</div>
+    ${campo('Checklist OK', seg('btCheck', b.checklist, [{ v: 'sí', n: 'Sí', cls: 'si' }, { v: 'no', n: 'No', cls: 'no' }]))}
+    ${campo('Notas', inp('bt', 'notas', b.notas, ''))}
+    <button class="btn block" data-act="addBt" style="margin-top:12px">Añadir caso</button></div>`;
   h += `<div class="card"><h2>Cuentas de swing activas</h2>
     <p class="small muted">Vienen marcadas por defecto en cada operación nueva de swing. La de scalping va sola en las de scalping.</p>
     <div class="chips">${CUENTAS.filter((c) => c !== CUENTA_SCALPING).map((c) => `<button class="${a.cuentasSwing.includes(c) ? 'on' : ''}" data-act="ajCuenta" data-v="${esc(c)}">${esc(c)}</button>`).join('')}</div></div>`;
@@ -1203,19 +1359,211 @@ function viewAjustes() {
   return h;
 }
 
+// --- Pestaña Domingo ---------------------------------------------------------
+function inpCuentaDom(c, f, v, ph) {
+  return `<input type="text" inputmode="decimal" autocomplete="off" data-o="domc" data-c="${esc(c)}" data-f="${f}" value="${esc(v || '')}" placeholder="${esc(ph || '')}">`;
+}
+function textoProg(p) { return p == null ? '' : `Con ese balance, el progreso es ${fmt(p, 1)} % (se usa si dejas el campo vacío).`; }
+function pasoHecho(id, iso, d, dd) {
+  if (id === 'cuentas') { const a = cuentasEfectivas().filter(cuentaActiva); return a.length > 0 && a.every((c) => state.estadoSemanal.some((x) => x.fecha === iso && x.cuenta === c.cuenta)); }
+  if (id === 'revision') return !!dd.revision.trim();
+  if (id === 'mensual') return dd.mensual.errores.some((e) => e.trim()) && !!dd.mensual.decision;
+  if (id === 'calendario') return !!dd.calendario.trim();
+  if (id === 'candidatas') return state.candidatas.some((c) => c.fecha === iso);
+  return !!regDe(iso).planificacion;
+}
+function pasoCuentas(d, iso, dd) {
+  if (!state.cuentas.length) return `<p class="vacio">Todavía no se han traído las cuentas de la hoja.</p><button class="btn sec block" data-act="traerCuentas">Traer cuentas de la hoja</button>`;
+  const activas = cuentasEfectivas().filter(cuentaActiva);
+  if (!activas.length) return '<p class="vacio">Ninguna cuenta con estado «activa» o «en curso» en la hoja Cuentas.</p>';
+  return `<p class="small muted" style="margin-top:0">Cuentas activas o en curso. Cada una se guarda como una fila de Estado semanal con fecha ${esc(iso)}.</p>` + activas.map((c) => {
+    const g = state.estadoSemanal.find((x) => x.fecha === iso && x.cuenta === c.cuenta);
+    if (g) return `<div class="opcard"><div class="t"><span>${esc(c.cuenta)}</span><span class="tag ok">guardado ✓</span></div>
+      <div class="s">Balance ${fmtDinero(g.balance, c.cuenta)} · drawdown ${esc(g.drawdown)} % · ${esc(g.diasRentables)} días rentables · progreso ${esc(g.progreso)} %${g.proximoRetiro ? ' · retiro ' + esc(g.proximoRetiro) : ''}</div></div>`;
+    const b = dd.cuentas[c.cuenta] || {}, prog = progresoCalculado(c, b.balance);
+    return `<div class="opcard"><div class="t"><span>${esc(c.cuenta)}</span><span class="small muted">${esc(c.fase)} · objetivo ${fmtDinero(c.objetivo, c.cuenta)}</span></div>
+      <div class="f2">${campo('Balance', inpCuentaDom(c.cuenta, 'balance', b.balance, fmtDinero(c.balance, c.cuenta)))}${campo('Drawdown usado %', inpCuentaDom(c.cuenta, 'drawdown', b.drawdown, '0'))}</div>
+      <div class="f2">${campo('Días rentables', inpCuentaDom(c.cuenta, 'diasRentables', b.diasRentables, '0'))}${campo('Progreso %', inpCuentaDom(c.cuenta, 'progreso', b.progreso, prog == null ? '' : fmt(prog, 1)))}</div>
+      ${campo('Próximo retiro', `<input type="date" data-o="domc" data-c="${esc(c.cuenta)}" data-f="proximoRetiro" value="${esc(b.proximoRetiro || '')}">`)}
+      <p class="small muted" data-prog="${esc(c.cuenta)}">${textoProg(prog)}</p>
+      <button class="btn block" data-act="domGuardarCuenta" data-c="${esc(c.cuenta)}">Guardar estado de ${esc(c.cuenta)}</button></div>`;
+  }).join('');
+}
+function statMini(l, v, cls, sub) { return `<div class="stat ${cls || ''}"><div class="l">${esc(l)}</div><div class="v">${v}</div>${sub ? `<div class="muted small">${esc(sub)}</div>` : ''}</div>`; }
+function pasoRevision(d, iso, dd) {
+  const w = semanaCurso(d);
+  let h = '';
+  if (w < 1) h += '<p class="vacio">Es el domingo antes de empezar el curso: todavía no hay semana que revisar.</p>';
+  else {
+    const m = metricasSemana(w);
+    h += `<p class="small muted" style="margin-top:0">Semana ${w}: del ${esc(fechaCorta(m.lunes))} al ${esc(fechaCorta(d))}. Mismos cálculos que la hoja Resumen.</p>
+      <div class="stats mini">
+      ${statMini('Revisión 7:30', `${m.rev730}/5`, m.rev730 >= OBJETIVO_SESIONES ? 'good' : 'bad', 'objetivo 4')}
+      ${statMini('Nueva York 15:30', `${m.ny1530}/5`, m.ny1530 >= OBJETIVO_SESIONES ? 'good' : 'bad', 'objetivo 4')}
+      ${statMini('Formación', `${m.formacion}/2`, '', 'solo se registra')}
+      ${statMini('Cumplimiento', pct(m.cumplimiento), m.cumplimiento == null ? '' : m.cumplimiento >= 1 ? 'good' : 'bad', `${m.dentro} de ${m.abiertas} operaciones abiertas`)}
+      ${statMini('Frenos', String(m.frenos), m.frenos ? 'bad' : '', `${m.diasReglas} días con reglas cumplidas`)}
+      ${statMini('R cerradas', m.cerradas ? fmtR(m.R) : '—', m.R > 0 ? 'good' : m.R < 0 ? 'bad' : '', `${m.cerradas} cierre${m.cerradas === 1 ? '' : 's'}`)}
+      </div>`;
+  }
+  return h + campo('Qué repetir / qué no', `<textarea data-o="dom" data-f="revision" placeholder="Qué ha funcionado y se repite; qué no se vuelve a hacer">${esc(dd.revision)}</textarea>`);
+}
+function pasoMensual(d, iso, dd) {
+  const ym = mesAnterior(d), m = metricasMes(ym), mm = dd.mensual, cond = mm.cond || {};
+  const antes = Object.keys(state.domingo).filter((k) => k < iso && esPrimerDomingo(parseISO(k)) && (state.domingo[k].mensual || {}).errores && state.domingo[k].mensual.errores.some((e) => e.trim())).sort().slice(-2);
+  const hace14 = fechaISO(sumarDias(d, -13));
+  const frenosSem = Object.keys(state.registro).filter((k) => k >= hace14 && k <= iso && state.registro[k].freno === 'semanal').length;
+  const challenges = cuentasEfectivas().filter((c) => String(c.fase).toLowerCase() === 'challenge' && cuentaActiva(c)).map((c) => c.cuenta);
+  const pistas = { sinFreno: `Frenos semanales en los últimos 14 días: ${frenosSem}.`, unChallenge: `Challenges en curso según Cuentas: ${challenges.length ? challenges.join(', ') : 'ninguno'}.`,
+    aprobado: challenges.length ? `En curso: ${challenges.join(', ')}.` : '' };
+  const todas = CONDICIONES_EXPANSION.every((c) => cond[c.id]);
+  let h = `<p class="small muted" style="margin-top:0">${esc(nombreMes(ym))}, por fecha de cierre (y de apertura para el cumplimiento), como la hoja Resumen.</p>
+    <div class="tablewrap"><table class="met"><tr><th></th><th>Cerradas</th><th>R</th><th>Aciertos</th></tr>
+      ${['swing', 'scalping'].map((k) => `<tr><td class="b">${cap(k)}</td><td>${m[k].n}</td><td class="${m[k].R > 0 ? 'ok' : m[k].R < 0 ? 'ko' : ''}">${m[k].n ? fmtR(m[k].R) : '—'}</td><td>${pct(m[k].aciertos)}</td></tr>`).join('')}
+    </table></div>
+    <p class="small" style="margin:8px 0 0">Cumplimiento: <b class="${m.cumplimiento == null ? '' : m.cumplimiento >= 1 ? 'pos' : 'neg'}">${pct(m.cumplimiento)}</b> <span class="muted">(${m.dentro} de ${m.abiertas} operaciones abiertas en el mes)</span></p>
+    <h3>Tres errores más repetidos</h3>
+    ${mm.errores.map((e, i) => `<input type="text" data-o="mens" data-f="error" data-i="${i}" value="${esc(e)}" placeholder="Error ${i + 1}" style="margin-top:6px">`).join('')}
+    ${antes.length ? `<p class="small muted" style="margin-top:8px">Meses anteriores (tres meses seguidos = regla escrita):</p><ul class="plain small">${antes.map((k) => `<li><b>${esc(nombreMes(mesAnterior(parseISO(k))))}:</b> ${esc(state.domingo[k].mensual.errores.filter((e) => e.trim()).join(' · '))}</li>`).join('')}</ul>` : ''}
+    <h3>Expansión de cuentas · las cuatro a la vez</h3>
+    ${CONDICIONES_EXPANSION.map((c) => `<button class="sw ${cond[c.id] ? 'on' : ''}" data-act="expCond" data-id="${c.id}" role="switch" aria-checked="${!!cond[c.id]}">
+      <span class="tg"></span><span class="tx"><b>${esc(c.t)}</b>${pistas[c.id] ? `<span>${esc(pistas[c.id])}</span>` : ''}</span></button>`).join('')}
+    <div class="aviso ${todas ? 'info' : ''}">${todas ? 'Se cumplen las cuatro condiciones.' : 'Falta alguna condición: se mueve la fecha a mano; nunca se fuerza.'}</div>
+    ${campo('Decisión', `<div class="chips">${DECISIONES_EXPANSION.map((x) => `<button class="${mm.decision === x ? 'on' : ''}" data-act="expDecision" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div>`)}
+    ${mm.decision === 'comprar' && !todas ? '<div class="aviso rojo">Comprar sin las cuatro condiciones va contra el plan.</div>' : ''}
+    ${campo('Coste en challenges frente a retiros · notas', `<input type="text" data-o="mens" data-f="notas" value="${esc(mm.notas)}" placeholder="Ej.: 3 challenges 1.200 $, retiros 1.850 $">`)}`;
+  return h;
+}
+function pasoCalendario(d, iso, dd) {
+  return `<p class="small muted" style="margin-top:0">Horas de alto impacto de la semana ${semanaPlan(d)}. Se ven en Hoy, en la revisión de 7:30, cada día; las líneas que empiezan por el día (lun, mar, mié, jue, vie) se destacan ese día.</p>
+    <textarea data-o="dom" data-f="calendario" placeholder="mar 14:30 IPC EE. UU.&#10;mié 20:00 FOMC&#10;vie 14:30 empleo EE. UU.">${esc(dd.calendario)}</textarea>
+    <div class="aviso">${esc(AVISO_NOTICIAS)}</div>`;
+}
+function pasoCandidatas(d, iso, dd) {
+  const cs = state.candidatas.filter((c) => c.fecha === iso), w = semanaPlan(d);
+  return `<p class="small muted" style="margin-top:0">Recorre la lista fija y la cartera buscando fin de ciclo y nueva zona repetida; si salen pocas, amplía a otras acciones.</p>
+    ${cs.length ? `<ul class="plain small">${cs.map((c) => { const r = ratioCand(c); return `<li><b>${esc(c.activo)}</b> · ${esc(c.direccion)} · zona ${esc(c.zona)} · stop ${esc(c.stop)} · TP1 ${esc(c.tp1)}${r == null ? '' : ' · 1:' + fmt(r, 2)} <span class="tag plain">${esc(c.estado)}</span></li>`; }).join('')}</ul>`
+      : `<p class="vacio">Aún no hay candidatas para la semana ${w}.</p>`}
+    <div class="navpasos" style="margin:10px 0 0"><button class="btn sec" data-act="domNuevaCand">＋ Candidata</button><button class="btn sec" data-act="domCand">Abrir Candidatas →</button></div>`;
+}
+function pasoHecha(d, iso, dd) {
+  const pasos = pasosDomingo(d).filter((p) => p.id !== 'hecha');
+  const on = !!regDe(iso).planificacion;
+  return `<ul class="plain small">${pasos.map((p) => `<li>${pasoHecho(p.id, iso, d, dd) ? '✓' : '–'} ${esc(p.t)}</li>`).join('')}</ul>
+    <button class="btn hecha ${on ? 'on' : ''}" data-act="marcar" data-key="planificacion" data-fecha="${iso}">${on ? '✓ Planificación hecha · Deshacer' : 'Planificación hecha ✓'}</button>
+    ${enCurso(d) ? '' : '<p class="small muted">Este domingo es anterior al curso: la marca se queda solo en la app.</p>'}
+    ${confirmPasarHTML(iso, d)}`;
+}
+function viewDomingo() {
+  const d = domingoRef(), iso = fechaISO(d), dd = datosDomingo(iso), pasos = pasosDomingo(d);
+  const i = Math.max(0, Math.min(dd.paso || 0, pasos.length - 1)), paso = pasos[i], wRev = semanaCurso(d);
+  let h = `<div class="card"><div class="hoy-big">Domingo ${esc(fechaCorta(d))}</div>
+    <div class="hoy-sub">${wRev >= 1 ? 'Revisión de la semana ' + wRev + ' · ' : ''}planificación de la semana ${semanaPlan(d)}${esPrimerDomingo(d) ? ' · primer domingo de mes' : ''}</div>
+    ${diaSemana(hoy()) !== 6 ? `<div class="aviso info">Hoy no es domingo: se muestra el último, el del ${esc(fechaCorta(d))}.</div>` : ''}
+    <div class="pasos">${pasos.map((p, j) => `<button class="paso ${j === i ? 'on' : ''} ${pasoHecho(p.id, iso, d, dd) ? 'hecho' : ''}" data-act="domPaso" data-i="${j}">${pasoHecho(p.id, iso, d, dd) ? '✓ ' : ''}${j + 1}. ${esc(p.t)}</button>`).join('')}</div></div>`;
+  h += `<div class="card"><h3>Paso ${i + 1} de ${pasos.length} · ${esc(paso.t)}</h3>
+    ${{ cuentas: pasoCuentas, revision: pasoRevision, mensual: pasoMensual, calendario: pasoCalendario, candidatas: pasoCandidatas, hecha: pasoHecha }[paso.id](d, iso, dd)}</div>`;
+  h += `<div class="navpasos"><button class="btn sec" data-act="domMover" data-d="-1" ${i === 0 ? 'disabled' : ''}>‹ Anterior</button>
+    <button class="btn" data-act="domMover" data-d="1" ${i === pasos.length - 1 ? 'disabled' : ''}>Siguiente ›</button></div>`;
+  return h;
+}
+
+// --- Pestaña Cuentas --------------------------------------------------------
+function viewCuentas() {
+  const cs = cuentasEfectivas();
+  let h = volverMas();
+  if (!cs.length) return h + `<div class="card"><p class="vacio">Todavía no se han traído las cuentas de la hoja.</p><button class="btn sec block" data-act="traerCuentas">Traer cuentas de la hoja</button></div>`;
+  h += cs.map((c) => {
+    const nombre = String(c.cuenta).trim(), u = ultimoEstado(nombre), lim = fechaDeHoja(c.fechaLimite), edit = state.cuentasEdit[nombre];
+    return `<div class="card">
+      <div class="row"><b style="font-size:17px">${esc(nombre)}</b><span>${c.fase ? `<span class="tag ${String(c.fase).toLowerCase() === 'challenge' ? 'warn' : ''}">${esc(c.fase)}</span>` : ''}${c.estado ? `<span class="tag plain">${esc(c.estado)}</span>` : ''}${edit ? '<span class="tag bad">editado aquí</span>' : ''}</span></div>
+      ${c.firma || c.producto ? `<div class="small muted">${esc([c.firma, c.producto].filter(Boolean).join(' · '))}</div>` : ''}
+      <div class="kv">
+        <div><span>Balance inicial</span>${fmtDinero(c.balance, nombre)}</div>
+        <div><span>Objetivo</span>${fmtDinero(c.objetivo, nombre)}</div>
+        <div><span>Pérdida diaria</span>${fmtDinero(c.perdidaDiaria, nombre)}</div>
+        <div><span>Pérdida máxima</span>${fmtDinero(c.perdidaMaxima, nombre)}</div>
+        <div><span>Fecha límite</span>${lim ? esc(lim) + `<div class="small ${Math.round((parseISO(lim) - hoy()) / 86400000) <= 7 ? 'neg' : 'muted'}">${textoPlazo(lim)}</div>` : '—'}</div>
+        <div><span>Uso</span>${esc(c.uso || '—')}</div>
+      </div>
+      <div class="sep"></div>
+      <div class="small"><b>Último estado semanal:</b> ${u ? `${esc(u.fecha)} · balance ${fmtDinero(u.balance, nombre)} · drawdown ${esc(u.drawdown)} % · ${esc(u.diasRentables)} días rentables · progreso ${esc(u.progreso)} %${u.proximoRetiro ? ' · retiro ' + esc(u.proximoRetiro) : ''}` : '<span class="muted">todavía ninguno.</span>'}</div>
+      ${c.notas ? `<div class="small muted" style="margin-top:6px">${esc(c.notas)}</div>` : ''}
+      <button class="btn sec block" data-act="editarCuenta" data-c="${esc(nombre)}" style="margin-top:10px">Editar</button></div>`;
+  }).join('');
+  h += `<p class="small muted">Los datos vienen de la hoja Cuentas (Ajustes → Recuperar de la hoja). Lo que edites aquí se queda en este móvil y no cambia la hoja.</p>`;
+  return h;
+}
+function viewPantallaCuenta(p) {
+  const k = p.k, hoja = state.cuentas.find((c) => String(c.cuenta).trim() === p.cuenta) || {};
+  let h = cabeceraP('Cuenta ' + p.cuenta);
+  h += `<div class="card">
+    <div class="f2">${campo('Balance inicial', inpNum('pk', 'balance', k.balance, ''))}${campo('Objetivo', inpNum('pk', 'objetivo', k.objetivo, ''))}</div>
+    <div class="f2">${campo('Pérdida diaria', inpNum('pk', 'perdidaDiaria', k.perdidaDiaria, ''))}${campo('Pérdida máxima', inpNum('pk', 'perdidaMaxima', k.perdidaMaxima, ''))}</div>
+    ${campo('Fase', `<div class="chips">${FASES_CUENTA.map((f) => `<button class="${String(k.fase).toLowerCase() === f ? 'on' : ''}" data-act="pkSet" data-f="fase" data-v="${f}">${f}</button>`).join('')}</div>`)}
+    ${campo('Estado', `<div class="chips">${ESTADOS_CUENTA.map((f) => `<button class="${String(k.estado).toLowerCase() === f ? 'on' : ''}" data-act="pkSet" data-f="estado" data-v="${f}">${f}</button>`).join('')}</div>`)}
+    ${campo('Fecha límite', inpFecha('pk', 'fechaLimite', k.fechaLimite))}
+    ${campo('Uso', seg('pkUso', k.uso, ['swing', 'scalping']))}
+    ${campo('Notas', inp('pk', 'notas', k.notas, ''))}</div>
+    <p class="small muted">Se guarda solo en este móvil. La hoja Cuentas no cambia: para que sea definitivo, cámbialo también allí.</p>
+    ${state.cuentasEdit[p.cuenta] ? `<button class="btn ghost block" data-act="cuentaHoja">Descartar mis cambios y volver a los datos de la hoja</button>` : ''}
+    ${hoja.cuenta ? '' : '<div class="aviso rojo">Esta cuenta ya no está en la hoja.</div>'}`;
+  h += `<div class="barra"><button class="btn" data-act="cuentaGuardar">Guardar</button></div>`;
+  return h;
+}
+
+// --- Pestaña Métricas -------------------------------------------------------
+function viewMetricas() {
+  const actual = Math.min(semanaCurso(hoy()), ULTIMA_SEMANA);
+  let h = volverMas();
+  if (actual < 1) return h + `<div class="card"><p class="vacio">El curso empieza el lunes ${esc(fechaCorta(parseISO(CURSO_INICIO)))}: todavía no hay semanas.</p></div>`;
+  const clsSes = (n, w) => (w < actual ? (n >= OBJETIVO_SESIONES ? 'ok' : 'ko') : '');
+  const clsCum = (x) => (x == null ? '' : x >= 1 ? 'ok' : 'ko');
+  const clsR = (r, n) => (!n ? '' : r > 0 ? 'ok' : r < 0 ? 'ko' : '');
+  h += `<div class="card"><h3>Semanas</h3><div class="tablewrap"><table class="met">
+    <tr><th>Semana</th><th>7:30</th><th>15:30</th><th>Form.</th><th>Cumpl.</th><th>Frenos</th><th>R</th></tr>`;
+  for (let w = actual; w >= 1; w--) {
+    const m = metricasSemana(w);
+    h += `<tr class="${w === actual ? 'actual' : ''}"><td><b>S${w}</b> <span class="muted">${esc(fechaCorta(m.lunes))}</span></td>
+      <td class="${clsSes(m.rev730, w)}">${m.rev730}/5</td><td class="${clsSes(m.ny1530, w)}">${m.ny1530}/5</td><td>${m.formacion}/2</td>
+      <td class="${clsCum(m.cumplimiento)}">${pct(m.cumplimiento)}</td><td class="${m.frenos ? 'av' : ''}">${m.frenos}</td>
+      <td class="${clsR(m.R, m.cerradas)}">${m.cerradas ? fmtR(m.R) : '—'}</td></tr>`;
+  }
+  h += `</table></div><p class="small muted" style="margin-top:8px">Verde: 4 de 5 en 7:30 y 15:30 (la semana en curso no se colorea) y 100 % dentro de reglas. Cumplimiento = operaciones abiertas en la semana dentro de reglas, igual que en la hoja Resumen. R por semana de cierre.</p></div>`;
+  h += `<div class="card"><h3>Meses</h3><div class="tablewrap"><table class="met">
+    <tr><th>Mes</th><th>Swing</th><th>R</th><th>Aciertos</th><th>Scalping</th><th>R</th><th>Aciertos</th><th>Cumpl.</th></tr>`;
+  mesesCurso().reverse().forEach((ym) => {
+    const m = metricasMes(ym);
+    h += `<tr class="${ym === fechaISO(hoy()).slice(0, 7) ? 'actual' : ''}"><td><b>${esc(nombreMes(ym))}</b></td>
+      <td>${m.swing.n}</td><td class="${clsR(m.swing.R, m.swing.n)}">${m.swing.n ? fmtR(m.swing.R) : '—'}</td><td>${pct(m.swing.aciertos)}</td>
+      <td>${m.scalping.n}</td><td class="${clsR(m.scalping.R, m.scalping.n)}">${m.scalping.n ? fmtR(m.scalping.R) : '—'}</td><td>${pct(m.scalping.aciertos)}</td>
+      <td class="${clsCum(m.cumplimiento)}">${pct(m.cumplimiento)}</td></tr>`;
+  });
+  h += `</table></div><p class="small muted" style="margin-top:8px">Operaciones, R y aciertos por mes de cierre; cumplimiento por mes de apertura. Calculado en este móvil con los días y las operaciones guardados.</p></div>`;
+  return h;
+}
+
+// --- Más --------------------------------------------------------------------
+function volverMas() { return `<button class="btn ghost volver" data-tab="mas">‹ Más</button>`; }
+function viewMas() {
+  return TABS_MAS.map((t) => `<button class="menu" data-tab="${t.id}"><span class="ic">${t.ic}</span><span><b>${esc(t.n)}</b><span class="s">${esc(t.s)}</span></span><span class="fl">›</span></button>`).join('');
+}
+
 // --- Pintado ----------------------------------------------------------------
 let vistaAnterior = '';
 function render() {
   const d = hoy(), w = semanaCurso(d), p = state.pantalla;
   $('#pill').textContent = (w < 1 ? 'Pretemporada' : 'S' + w) + ' · fase ' + state.ajustes.fase;
-  const clave = p ? 'p:' + p.tipo + ':' + (p.uid || (p.o || p.c || {}).uid) : state.tab;
+  const clave = p ? 'p:' + p.tipo + ':' + (p.uid || p.cuenta || (p.o || p.c || {}).uid) : state.tab;
   const prev = $('.pantalla'), scrollP = prev && clave === vistaAnterior ? prev.scrollTop : 0;
   document.body.classList.toggle('enpantalla', !!p);
   $('#view').innerHTML = p
     ? `<div class="pantalla"><div class="inner">${viewPantalla()}</div></div>`
-    : { hoy: viewHoy, operaciones: viewOperaciones, candidatas: viewCandidatas, plan: viewPlan, ajustes: viewAjustes }[state.tab]();
+    : { hoy: viewHoy, operaciones: viewOperaciones, candidatas: viewCandidatas, domingo: viewDomingo, mas: viewMas,
+        cuentas: viewCuentas, metricas: viewMetricas, plan: viewPlan, ajustes: viewAjustes }[state.tab]();
   if (p) $('.pantalla').scrollTop = scrollP;
-  $('#tabbar').innerHTML = TABS.map((t) => `<button class="${t.id === state.tab ? 'on' : ''}" data-tab="${t.id}" aria-label="${t.n}"><span class="ic">${t.ic}</span>${t.n}</button>`).join('');
+  const enMas = TABS_MAS.some((t) => t.id === state.tab);
+  $('#tabbar').innerHTML = TABS.map((t) => `<button class="${t.id === state.tab || (t.id === 'mas' && enMas) ? 'on' : ''}" data-tab="${t.id}" aria-label="${t.n}"><span class="ic">${t.ic}</span>${t.n}</button>`).join('');
   if (clave !== vistaAnterior && !p) window.scrollTo(0, 0);
   vistaAnterior = clave;
   guardar();
@@ -1361,6 +1709,48 @@ $('#view').addEventListener('click', (e) => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(b.fecha || '')) break;
       guardarBacktest(Object.assign({ uid: uid() }, b)); borradores.bt = null; render(); break;
     }
+    case 'btDir': borradores.bt.direccion = v; render(); break;
+    // Domingo
+    case 'domPaso': case 'domMover': {
+      const d = domingoRef(), dd = datosDomingo(fechaISO(d)), n = pasosDomingo(d).length;
+      dd.paso = el.dataset.act === 'domPaso' ? +el.dataset.i : Math.max(0, Math.min(n - 1, (dd.paso || 0) + parseInt(el.dataset.d, 10)));
+      guardarDomingo(); render(); window.scrollTo(0, 0); break;
+    }
+    case 'domGuardarCuenta': {
+      const d = domingoRef(), iso = fechaISO(d), dd = datosDomingo(iso), nombre = el.dataset.c;
+      const c = cuentasEfectivas().find((x) => String(x.cuenta).trim() === nombre), b = dd.cuentas[nombre] || {};
+      if (!c || numDinero(b.balance) === '') { const x = document.querySelector(`input[data-c="${CSS.escape(nombre)}"][data-f="balance"]`); if (x) x.focus(); break; }
+      if (state.estadoSemanal.some((x) => x.fecha === iso && x.cuenta === nombre)) break;
+      const prog = String(b.progreso || '').trim() !== '' ? b.progreso : progresoCalculado(c, b.balance);
+      guardarEstadoSemanal({ uid: uid(), fecha: iso, cuenta: nombre, balance: b.balance, drawdown: b.drawdown || '', diasRentables: b.diasRentables || '',
+        proximoRetiro: b.proximoRetiro || '', progreso: prog == null ? '' : String(prog).replace('.', ','), notas: '' });
+      delete dd.cuentas[nombre]; guardarDomingo(); render(); break;
+    }
+    case 'domCand': state.semanaSel = semanaPlan(domingoRef()); state.tab = 'candidatas'; render(); break;
+    case 'domNuevaCand':
+      state.pantalla = { tipo: 'cand', c: { uid: uid(), fecha: fechaISO(domingoRef()), activo: '', direccion: 'largo', zona: '', stop: '', tp1: '', estado: 'pendiente', notas: '' }, activoOtro: false };
+      guardarPantalla(); render(); break;
+    case 'expCond': { const mm = datosDomingo(fechaISO(domingoRef())).mensual; mm.cond = mm.cond || {}; mm.cond[el.dataset.id] = !mm.cond[el.dataset.id]; guardarDomingo(); render(); break; }
+    case 'expDecision': { const mm = datosDomingo(fechaISO(domingoRef())).mensual; mm.decision = mm.decision === v ? '' : v; guardarDomingo(); render(); break; }
+    // Cuentas
+    case 'editarCuenta': {
+      const c = cuentasEfectivas().find((x) => String(x.cuenta).trim() === el.dataset.c); if (!c) break;
+      const k = {}; CAMPOS_CUENTA.forEach((f) => { k[f] = c[f] == null ? '' : String(c[f]); });
+      k.fechaLimite = fechaDeHoja(c.fechaLimite);
+      state.pantalla = { tipo: 'cuenta', cuenta: el.dataset.c, k }; guardarPantalla(); render(); break;
+    }
+    case 'pkSet': p.k[el.dataset.f] = p.k[el.dataset.f] === v ? '' : v; guardarPantalla(); render(); break;
+    case 'pkUso': p.k.uso = v; guardarPantalla(); render(); break;
+    case 'cuentaGuardar': {
+      const hoja = state.cuentas.find((c) => String(c.cuenta).trim() === p.cuenta) || {}, dif = {};
+      CAMPOS_CUENTA.forEach((f) => {
+        const orig = f === 'fechaLimite' ? fechaDeHoja(hoja[f]) : String(hoja[f] == null ? '' : hoja[f]);
+        if (String(p.k[f] == null ? '' : p.k[f]).trim() !== orig.trim()) dif[f] = String(p.k[f]).trim();
+      });
+      if (Object.keys(dif).length) state.cuentasEdit[p.cuenta] = dif; else delete state.cuentasEdit[p.cuenta];
+      LS.set('cuentasEdit', state.cuentasEdit); cerrarPantalla(); break;
+    }
+    case 'cuentaHoja': delete state.cuentasEdit[p.cuenta]; LS.set('cuentasEdit', state.cuentasEdit); cerrarPantalla(); break;
     // Ajustes y sincronización
     case 'ajCuenta': {
       const cs = state.ajustes.cuentasSwing;
@@ -1380,8 +1770,8 @@ $('#view').addEventListener('click', (e) => {
 function alEscribir(t) {
   const o = t.dataset.o, f = t.dataset.f, p = state.pantalla;
   if (o && f) {
-    if (p && (o === 'po' || o === 'pc' || o === 'p')) {
-      const obj = o === 'po' ? p.o : o === 'pc' ? p.c : p;
+    if (p && (o === 'po' || o === 'pc' || o === 'p' || o === 'pk')) {
+      const obj = o === 'po' ? p.o : o === 'pc' ? p.c : o === 'pk' ? p.k : p;
       obj[f] = t.value;
       if (o === 'po' && f === 'riesgo') p.riesgoAuto = false;
       if (o === 'po' && (f === 'fechaApertura')) recalcularRiesgo(p);
@@ -1392,6 +1782,18 @@ function alEscribir(t) {
       }
       if (p.tipo === 'cierre' && f === 'resultadoR') p.rManual = t.value.trim() !== '';
       guardarPantalla(); pintarPantalla();
+    } else if (o === 'domc' || o === 'dom' || o === 'mens') {
+      const dd = datosDomingo(fechaISO(domingoRef()));
+      if (o === 'dom') dd[f] = t.value;
+      else if (o === 'mens') { if (f === 'error') dd.mensual.errores[+t.dataset.i] = t.value; else dd.mensual[f] = t.value; }
+      else {
+        const c = t.dataset.c; dd.cuentas[c] = Object.assign({}, dd.cuentas[c], { [f]: t.value });
+        if (f === 'balance') {
+          const cu = cuentasEfectivas().find((x) => String(x.cuenta).trim() === c), el = document.querySelector(`[data-prog="${CSS.escape(c)}"]`);
+          if (cu && el) el.textContent = textoProg(progresoCalculado(cu, t.value));
+        }
+      }
+      guardarDomingo();
     } else if (o === 'reg') {
       guardarRegistro(fechaISO(fechaTab()), { [f]: t.value });
     } else if (borradores[o]) {

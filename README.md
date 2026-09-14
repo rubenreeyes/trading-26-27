@@ -18,8 +18,13 @@ planificación del domingo, reglas cumplidas, freno y nota del día) ·
 **Operaciones** (abiertas con Gestionar y Cerrar, cerradas en R, formulario de
 entrada con la checklist, avisos de posiciones y de riesgo abierto por cuenta) ·
 **Candidatas** (lista del domingo por semana, convertir en operación, estado
-semanal por cuenta) · **Plan** (fases de scalping, backtest y referencia) ·
-**Ajustes**.
+semanal por cuenta) · **Domingo** (asistente de la rutina del domingo: estado
+de cuentas, revisión de la semana, revisión mensual el primer domingo,
+calendario económico, candidatas y planificación hecha) · **Más**, con
+**Cuentas** (límites, fecha límite y último estado semanal), **Métricas**
+(semanas y meses con los mismos cálculos que la hoja Resumen), **Plan** (fases
+de scalping y referencia) y **Ajustes** (conexión, backtest y copia de
+seguridad).
 
 ## Puesta en marcha
 
