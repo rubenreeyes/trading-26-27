@@ -213,7 +213,7 @@ const CURSO_FIN    = '2027-07-31';
 const DIAS_ATRAS   = 2;              // desde Hoy se puede marcar ayer y anteayer
 const RATIO_MINIMO = 3;              // checklist 5: al menos 1:3 hasta TP1
 const OBJETIVO_SEMANA = { rev730: 5, ny1530: 5, formacion: 2 };
-const OBJETIVO_CUMPLIMIENTO = 100;   // % de días dentro de reglas (objetivo del plan)
+const OBJETIVO_CUMPLIMIENTO = 100;   // % de días con reglas cumplidas en Hoy (no es el "Cumplimiento %" de Resumen, que va por operaciones)
 
 // Checklist de la revisión de 7:30 (lunes a viernes, 7:30-7:40).
 const CHECKLIST_730 = [
@@ -978,9 +978,9 @@ function viewHoy() {
     <div class="stat"><div class="l">Esta semana</div>
       <div class="v">7:30 ${sem.rev730}/${OBJETIVO_SEMANA.rev730}</div>
       <div class="muted small">15:30 ${sem.ny1530}/${OBJETIVO_SEMANA.ny1530} · formación ${sem.formacion}/${OBJETIVO_SEMANA.formacion}</div></div>
-    <div class="stat ${mes.pct == null ? '' : mes.pct >= OBJETIVO_CUMPLIMIENTO ? 'good' : 'bad'}"><div class="l">Cumplimiento del mes</div>
+    <div class="stat ${mes.pct == null ? '' : mes.pct >= OBJETIVO_CUMPLIMIENTO ? 'good' : 'bad'}"><div class="l">Días con reglas cumplidas</div>
       <div class="v">${mes.pct == null ? '—' : mes.pct + ' %'}</div>
-      <div class="muted small">${mes.pct == null ? 'sin días marcados aún' : `${mes.si} de ${mes.marcados} días con reglas marcadas`}</div></div></div>`;
+      <div class="muted small">${mes.pct == null ? 'este mes, sin días marcados aún' : `este mes: ${mes.si} de ${mes.marcados} días marcados`}</div></div></div>`;
 
   if (dow <= 4) {
     h += tarjetaDia(iso, 'rev730', 'Revisión', '7:30', `<ol class="pts">${CHECKLIST_730.map((t) => `<li>${esc(t)}</li>`).join('')}</ol>${calendarioHoyHTML(d)}${avisosHoyHTML()}`, reg);

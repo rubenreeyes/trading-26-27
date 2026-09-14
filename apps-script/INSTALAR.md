@@ -102,8 +102,15 @@ curl -L -H "Content-Type: text/plain" -d '{"token":"TU_TOKEN","accion":"dia","da
 - Los cuatro campos de tipo casilla del día (`rev730`, `ny1530`, `formacion`,
   `planificacion`): `true` escribe "x", `false` vacía la celda, `null` o ausente no
   la toca. El resto de campos solo se escriben si vienen en el mensaje.
-- Las fechas se escriben siempre como texto `AAAA-MM-DD` (la celda se pone en
-  formato texto para que Sheets no las convierta).
+- Fechas: la fecha de apertura y la de cierre de Operaciones (B y S) y la
+  columna A de Candidatas, Estado semanal y Backtest se escriben como **fechas
+  reales** con formato `yyyy-mm-dd`, para que las fórmulas de Semana, Mes y
+  Resumen calculen sin convertir texto. "Próximo retiro" de Estado semanal
+  sigue como texto `AAAA-MM-DD`. Dias!A no se escribe nunca. Al leer, la app
+  recibe siempre las fechas como texto `AAAA-MM-DD`.
+- La zona horaria del script (Configuración del proyecto) debe ser la misma que
+  la de la hoja (Archivo → Configuración); si no, una fecha podría guardarse un
+  día antes. `comprobarHojas()` lo avisa.
 - Un token incorrecto responde `{"ok":false,"codigo":403,"error":"token incorrecto"}`.
   Apps Script no permite cambiar el código HTTP, por eso el 403 va dentro del JSON.
 - La app envía con `Content-Type: text/plain` para evitar el preflight de CORS y

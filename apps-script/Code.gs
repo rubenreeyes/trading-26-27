@@ -14,6 +14,12 @@
  *   Cuentas         solo lectura.
  *   Leyenda y Resumen no se tocan nunca.
  *
+ * Fechas: Operaciones B y S, Candidatas A, Estado semanal A y Backtest A se
+ * escriben como fechas reales (Date) con formato yyyy-mm-dd, para que las
+ * fórmulas de la hoja (Semana, Mes, Resumen) no dependan de convertir texto.
+ * Dias!A nunca se escribe, solo se busca. Al leer, toda fecha se devuelve
+ * como texto AAAA-MM-DD.
+ *
  * Cada columna se localiza por el TEXTO de su cabecera (fila 1) y, si no
  * aparece, por la letra de respaldo. Ejecuta comprobarHojas() para ver si
  * alguna cabecera no coincide.
@@ -105,8 +111,15 @@ var HOJAS = {
   }
 };
 
-// Columnas que llevan fecha y se escriben siempre como texto AAAA-MM-DD.
-var COLS_FECHA = ['fecha', 'fechaApertura', 'fechaCierre', 'proximoRetiro'];
+// Columnas de fecha que se escriben como fecha real (Date) con formato yyyy-mm-dd.
+// La clave 'fecha' es la columna A de Candidatas, Estado semanal y Backtest
+// (en Dias también se llama así, pero Dias!A nunca se escribe).
+var COLS_FECHA_REAL = ['fecha', 'fechaApertura', 'fechaCierre'];
+// Columnas de fecha que se siguen escribiendo como texto AAAA-MM-DD.
+var COLS_FECHA_TEXTO = ['proximoRetiro'];
+// Al leer, todas se normalizan a texto AAAA-MM-DD.
+var COLS_FECHA = COLS_FECHA_REAL.concat(COLS_FECHA_TEXTO);
+var FORMATO_FECHA = 'yyyy-mm-dd';
 
 // --- Utilidades --------------------------------------------------------------
 function responder(obj) {
@@ -145,10 +158,21 @@ function colALetra(n) {
   return s;
 }
 
+// Zona horaria de la hoja (con la del script como respaldo). Se usa al leer
+// fechas para que el día sea el que se ve en la celda.
+var zonaCache_ = null;
+function zonaHoja() {
+  if (!zonaCache_) {
+    try { zonaCache_ = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(); } catch (err) { zonaCache_ = null; }
+    if (!zonaCache_) zonaCache_ = Session.getScriptTimeZone();
+  }
+  return zonaCache_;
+}
+
 // La celda de fecha, como texto AAAA-MM-DD, valga como Date o como texto.
 function fechaTexto(v) {
   // Duck typing en vez de "instanceof Date": vale para cualquier Date venga de donde venga.
-  if (v && typeof v.getTime === 'function') return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  if (v && typeof v.getTime === 'function') return Utilities.formatDate(v, zonaHoja(), 'yyyy-MM-dd');
   var s = texto(v);
   var m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (m) return m[1] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2);
@@ -190,10 +214,26 @@ function esFormula(def, clave) {
   return (def.formulas || []).indexOf(clave) >= 0;
 }
 
-// Escribe respetando el tipo: las fechas siempre como texto AAAA-MM-DD.
+// Texto AAAA-MM-DD (o fecha) → Date real a medianoche; null si no es una fecha válida.
+function fechaReal(v) {
+  var m = fechaTexto(v).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return d.getMonth() === Number(m[2]) - 1 && d.getDate() === Number(m[3]) ? d : null;   // descarta 2026-02-30
+}
+
+// Escribe respetando el tipo: fechas reales con formato yyyy-mm-dd, o texto AAAA-MM-DD.
 function escribir(sh, fila, col, clave, valor) {
   var r = sh.getRange(fila, col);
-  if (COLS_FECHA.indexOf(clave) >= 0) {
+  if (COLS_FECHA_REAL.indexOf(clave) >= 0) {
+    if (fechaTexto(valor) === '') { r.clearContent(); return; }
+    var d = fechaReal(valor);
+    if (!d) throw new Error('fecha inválida (AAAA-MM-DD): ' + valor);
+    r.setValue(d);
+    r.setNumberFormat(FORMATO_FECHA);
+    return;
+  }
+  if (COLS_FECHA_TEXTO.indexOf(clave) >= 0) {
     var f = fechaTexto(valor);
     if (f === '') { r.clearContent(); return; }
     r.setNumberFormat('@');
@@ -225,7 +265,17 @@ function filaLibre(sh, def, cols) {
 }
 
 // Escribe en una fila los campos que vengan definidos, saltándose las fórmulas.
+// Las fechas se validan antes de escribir nada, para no dejar filas a medias.
+function validarFechas(def, datos) {
+  def.cols.forEach(function (c) {
+    var v = datos[c[0]];
+    if (COLS_FECHA_REAL.indexOf(c[0]) >= 0 && definido(v) && fechaTexto(v) !== '' && !fechaReal(v)) {
+      throw new Error('fecha inválida (AAAA-MM-DD): ' + v);
+    }
+  });
+}
 function escribirFila(sh, def, cols, fila, datos) {
+  validarFechas(def, datos);
   def.cols.forEach(function (c) {
     var clave = c[0];
     if (!definido(datos[clave])) return;
@@ -291,11 +341,12 @@ function guardarOperacion(d) {
     if (!(fila >= 2)) return responder({ ok: false, error: 'id inválido' });
     if (fila > Math.max(def.preparadas, sh.getLastRow())) return responder({ ok: false, error: 'id fuera de la hoja' });
   } else {
-    fila = filaLibre(sh, def, cols);
-    nueva = true;
     if (!definido(d.fechaApertura) || fechaTexto(d.fechaApertura) === '') {
       return responder({ ok: false, error: 'falta la fecha de apertura' });
     }
+    validarFechas(def, d);
+    fila = filaLibre(sh, def, cols);
+    nueva = true;
   }
   escribirFila(sh, def, cols, fila, d);
   return responder({ ok: true, id: fila - 1, fila: fila, nueva: nueva });
@@ -467,6 +518,13 @@ function comprobarHojas() {
   ['Leyenda', 'Resumen'].forEach(function (n) {
     lineas.push((ss.getSheetByName(n) ? '· ' : '· falta ') + 'la hoja "' + n + '" (el script no la toca)');
   });
+  var zScript = Session.getScriptTimeZone(), zHoja = ss.getSpreadsheetTimeZone();
+  if (zScript === zHoja) lineas.push('✓ Zona horaria del script y de la hoja: ' + zHoja + '.');
+  else {
+    problemas++;
+    lineas.push('✗ La zona horaria del script (' + zScript + ') no coincide con la de la hoja (' + zHoja + '): ' +
+      'las fechas podrían guardarse un día antes. Cámbiala en Configuración del proyecto → Zona horaria.');
+  }
   lineas.push(PropertiesService.getScriptProperties().getProperty('TOKEN')
     ? '✓ La propiedad TOKEN está puesta.'
     : '✗ FALTA la propiedad del script TOKEN (Configuración del proyecto → Propiedades del script).');
