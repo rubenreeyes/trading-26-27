@@ -3,7 +3,8 @@
  *
  * La hoja YA EXISTE y ya tiene sus filas y sus fórmulas. Este script no crea
  * hojas ni filas nuevas salvo cuando se agotan las filas preparadas, y en ese
- * caso copia antes las fórmulas de la fila anterior.
+ * caso copia antes las fórmulas de la fila anterior. Las dos únicas hojas que
+ * este script crea son "Notas" y "Retiros", si no existen.
  *
  * Hojas que toca:
  *   Dias            una fila por día del curso (14-09-2026 a 31-07-2027). Solo D-L.
@@ -11,7 +12,9 @@
  *   Candidatas      400 filas preparadas; B y H son fórmulas.
  *   Estado semanal  300 filas preparadas; B es fórmula.
  *   Backtest        filas 2-401 (de la 404 en adelante hay resúmenes).
- *   Cuentas         solo lectura.
+ *   Cuentas         se lee y se escribe (alta, edición y columnas M y N).
+ *   Notas           textos del domingo; se crea con cabeceras si no existe.
+ *   Retiros         pagos cobrados; se crea con cabeceras si no existe.
  *   Leyenda y Resumen no se tocan nunca.
  *
  * Fechas: Operaciones B y S, Candidatas A, Estado semanal A y Backtest A se
@@ -82,8 +85,11 @@ var HOJAS = {
       ['balance', 'Balance inicial ($)', 'D'], ['fase', 'Fase (challenge/earning)', 'E'],
       ['perdidaDiaria', 'Pérdida diaria ($)', 'F'], ['perdidaMaxima', 'Pérdida máxima ($)', 'G'],
       ['objetivo', 'Objetivo ($)', 'H'], ['fechaLimite', 'Fecha límite', 'I'],
-      ['estado', 'Estado', 'J'], ['uso', 'Uso (swing/scalping)', 'K'], ['notas', 'Notas', 'L']
-    ]
+      ['estado', 'Estado', 'J'], ['uso', 'Uso (swing/scalping)', 'K'], ['notas', 'Notas', 'L'],
+      ['riesgoDefecto', 'Riesgo por defecto %', 'M'], ['costeChallenge', 'Coste challenge ($)', 'N']
+    ],
+    claveLibre: 'cuenta',
+    nuevasCabeceras: ['riesgoDefecto', 'costeChallenge']   // se escriben en la fila 1 si faltan
   },
   estado: {
     nombre: 'Estado semanal',
@@ -95,6 +101,27 @@ var HOJAS = {
       ['balance', 'Balance', 'D'], ['drawdown', 'Drawdown usado (%)', 'E'],
       ['diasRentables', 'Días rentables', 'F'], ['proximoRetiro', 'Próximo retiro', 'G'],
       ['progreso', 'Progreso objetivo (%)', 'H'], ['notas', 'Notas', 'I']
+    ]
+  },
+  notas: {
+    nombre: 'Notas',
+    crear: true,                   // esta hoja y Retiros son las únicas que el script crea
+    formulas: ['semana'],
+    claveLibre: 'fecha',
+    formulaSemana: 'semana',       // se escribe al añadir la fila, no se copia de la anterior
+    cols: [
+      ['fecha', 'Fecha', 'A'], ['tipo', 'Tipo (revision/calendario/mensual/expansion/libre)', 'B'],
+      ['semana', 'Semana', 'C'], ['texto', 'Texto', 'D']
+    ]
+  },
+  retiros: {
+    nombre: 'Retiros',
+    crear: true,
+    formulas: [],
+    claveLibre: 'fecha',
+    cols: [
+      ['fecha', 'Fecha', 'A'], ['cuenta', 'Cuenta', 'B'], ['bruto', 'Beneficio bruto ($)', 'C'],
+      ['reparto', 'Reparto %', 'D'], ['neto', 'Neto cobrado ($)', 'E'], ['metodo', 'Método', 'F'], ['notas', 'Notas', 'G']
     ]
   },
   backtest: {
@@ -113,8 +140,9 @@ var HOJAS = {
 
 // Columnas de fecha que se escriben como fecha real (Date) con formato yyyy-mm-dd.
 // La clave 'fecha' es la columna A de Candidatas, Estado semanal y Backtest
-// (en Dias también se llama así, pero Dias!A nunca se escribe).
-var COLS_FECHA_REAL = ['fecha', 'fechaApertura', 'fechaCierre'];
+// (en Dias también se llama así, pero Dias!A nunca se escribe), más la fecha
+// límite de Cuentas.
+var COLS_FECHA_REAL = ['fecha', 'fechaApertura', 'fechaCierre', 'fechaLimite'];
 // Columnas de fecha que se siguen escribiendo como texto AAAA-MM-DD.
 var COLS_FECHA_TEXTO = ['proximoRetiro'];
 // Al leer, todas se normalizan a texto AAAA-MM-DD.
@@ -182,9 +210,25 @@ function fechaTexto(v) {
 }
 
 function hojaDe(def) {
-  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(def.nombre);
-  if (!sh) throw new Error('falta la hoja "' + def.nombre + '"');
+  var ss = SpreadsheetApp.getActiveSpreadsheet(), sh = ss.getSheetByName(def.nombre);
+  if (!sh) {
+    if (!def.crear) throw new Error('falta la hoja "' + def.nombre + '"');
+    sh = ss.insertSheet(def.nombre);
+    sh.getRange(1, 1, 1, def.cols.length).setValues([def.cols.map(function (c) { return c[1]; })]);
+    sh.setFrozenRows(1);
+  }
   return sh;
+}
+
+// Columnas añadidas después (Cuentas M y N): si la cabecera está vacía, se escribe.
+function asegurarCabeceras(sh, def, cols) {
+  (def.nuevasCabeceras || []).forEach(function (clave) {
+    var c = cols[clave], celda = sh.getRange(1, c);
+    if (texto(celda.getValue()) === '') {
+      var def1 = def.cols.filter(function (x) { return x[0] === clave; })[0];
+      celda.setValue(def1[1]);
+    }
+  });
 }
 
 /**
@@ -257,11 +301,20 @@ function filaLibre(sh, def, cols) {
   }
   if (def.tope) throw new Error('no quedan filas libres en "' + def.nombre + '" (hasta la ' + def.preparadas + ')');
   var nueva = Math.max(hasta, 1) + 1;
-  (def.formulas || []).forEach(function (clave) {
+  if (def.formulaSemana) escribirFormulaSemana(sh, def, cols, nueva);
+  else (def.formulas || []).forEach(function (clave) {
     var c = cols[clave];
     sh.getRange(nueva - 1, c).copyTo(sh.getRange(nueva, c));   // arrastra la fórmula a la fila nueva
   });
   return nueva;
+}
+
+// Semana de una hoja creada por el script (el domingo cuenta como semana siguiente,
+// igual que en Candidatas). setFormula espera la sintaxis en inglés; la hoja la muestra traducida.
+function escribirFormulaSemana(sh, def, cols, fila) {
+  var a = colALetra(cols[def.cols[0][0]]) + fila;
+  sh.getRange(fila, cols[def.formulaSemana])
+    .setFormula('=IF(' + a + '="","","S"&(INT((' + a + '-DATE(2026,9,14)+1)/7)+1))');
 }
 
 // Escribe en una fila los campos que vengan definidos, saltándose las fórmulas.
@@ -383,6 +436,66 @@ function guardarBacktest(d) {
   return responder({ ok: true, fila: fila });
 }
 
+// Busca una fila por el valor de una columna (texto normalizado). -1 si no está.
+function buscarFila(sh, cols, clave, valor) {
+  var n = sh.getLastRow();
+  if (n < 2) return -1;
+  var v = sh.getRange(2, cols[clave], n - 1, 1).getValues(), buscado = normaliza(valor);
+  for (var i = 0; i < v.length; i++) if (normaliza(v[i][0]) === buscado && buscado !== '') return i + 2;
+  return -1;
+}
+
+/**
+ * Nota del domingo: una fila por fecha y tipo. Si ya existe esa pareja se
+ * actualiza el texto; si no, se añade al final y se le escribe la fórmula de Semana.
+ */
+function guardarNota(d) {
+  var def = HOJAS.notas, sh = hojaDe(def), cols = columnas(sh, def);
+  var fecha = fechaTexto(d.fecha), tipo = texto(d.tipo);
+  if (!esFecha(fecha)) return responder({ ok: false, error: 'fecha inválida (AAAA-MM-DD)' });
+  if (!tipo) return responder({ ok: false, error: 'falta el tipo de nota' });
+  var n = sh.getLastRow(), fila = -1;
+  if (n >= 2) {
+    var v = sh.getRange(2, 1, n - 1, Math.max(cols.fecha, cols.tipo)).getValues();
+    for (var i = 0; i < v.length; i++) {
+      if (fechaTexto(v[i][cols.fecha - 1]) === fecha && normaliza(v[i][cols.tipo - 1]) === normaliza(tipo)) { fila = i + 2; break; }
+    }
+  }
+  var nueva = fila < 0;
+  if (nueva) {
+    fila = filaLibre(sh, def, cols);
+    escribirFila(sh, def, cols, fila, { fecha: fecha, tipo: tipo, texto: texto(d.texto) });
+    escribirFormulaSemana(sh, def, cols, fila);
+  } else {
+    escribirFila(sh, def, cols, fila, { texto: texto(d.texto) });
+  }
+  return responder({ ok: true, fila: fila, nueva: nueva });
+}
+
+/** Retiro cobrado: siempre una fila nueva. */
+function guardarRetiro(d) {
+  var def = HOJAS.retiros, sh = hojaDe(def), cols = columnas(sh, def);
+  if (fechaTexto(d.fecha) === '') return responder({ ok: false, error: 'falta la fecha' });
+  var fila = filaLibre(sh, def, cols);
+  escribirFila(sh, def, cols, fila, d);
+  return responder({ ok: true, fila: fila });
+}
+
+/**
+ * Alta o edición de una cuenta. Se localiza por el nombre (columna A); si no
+ * existe, se añade al final. No se borran filas nunca.
+ */
+function guardarCuenta(d) {
+  var def = HOJAS.cuentas, sh = hojaDe(def), cols = columnas(sh, def);
+  asegurarCabeceras(sh, def, cols);
+  var nombre = texto(d.cuenta);
+  if (!nombre) return responder({ ok: false, error: 'falta el nombre de la cuenta' });
+  var fila = buscarFila(sh, cols, 'cuenta', nombre), nueva = false;
+  if (fila < 0) { fila = filaLibre(sh, def, cols); nueva = true; }
+  escribirFila(sh, def, cols, fila, d);
+  return responder({ ok: true, fila: fila, nueva: nueva, cuenta: nombre });
+}
+
 // --- Lecturas ----------------------------------------------------------------
 // Devuelve las filas con datos de una hoja, como objetos {clave: valor}.
 function leerHoja(def, filtro) {
@@ -443,7 +556,13 @@ function doGet(e) {
         return sem === '' || texto(o.semana) === sem;
       });
     } else if (que === 'cuentas') {
+      var shC = hojaDe(HOJAS.cuentas);
+      asegurarCabeceras(shC, HOJAS.cuentas, columnas(shC, HOJAS.cuentas));
       filas = leerHoja(HOJAS.cuentas, function (o) { return texto(o.cuenta) !== ''; });
+    } else if (que === 'notas') {
+      filas = leerHoja(HOJAS.notas, function (o) { return texto(o.fecha) !== ''; });
+    } else if (que === 'retiros') {
+      filas = leerHoja(HOJAS.retiros, function (o) { return texto(o.fecha) !== ''; });
     } else if (que === 'estado') {
       filas = leerHoja(HOJAS.estado, function (o) { return texto(o.fecha) !== ''; });
     } else {
@@ -465,7 +584,8 @@ function doPost(e) {
   var accion = texto(d.accion), datos = d.datos || {};
   var fns = {
     dia: guardarDia, operacion: guardarOperacion, candidata: guardarCandidata,
-    estadoSemanal: guardarEstadoSemanal, backtest: guardarBacktest
+    estadoSemanal: guardarEstadoSemanal, backtest: guardarBacktest,
+    nota: guardarNota, retiro: guardarRetiro, cuenta: guardarCuenta
   };
   if (!fns[accion]) return responder({ ok: false, error: 'acción desconocida: ' + (accion || '(vacía)') });
 
@@ -489,7 +609,11 @@ function comprobarHojas() {
   Object.keys(HOJAS).forEach(function (k) {
     var def = HOJAS[k];
     var sh = ss.getSheetByName(def.nombre);
-    if (!sh) { lineas.push('✗ FALTA la hoja "' + def.nombre + '"'); problemas++; return; }
+    if (!sh) {
+      if (def.crear) lineas.push('· la hoja "' + def.nombre + '" todavía no existe: el script la creará con sus cabeceras la primera vez que escriba en ella.');
+      else { lineas.push('✗ FALTA la hoja "' + def.nombre + '"'); problemas++; }
+      return;
+    }
     var ancho = Math.max(sh.getLastColumn(), def.cols.length);
     var cab = sh.getRange(1, 1, 1, ancho).getValues()[0];
     var mapa = columnas(sh, def);
@@ -498,6 +622,10 @@ function comprobarHojas() {
       var esperada = letraACol(c[2]);
       var real = mapa[c[0]];
       var textoReal = texto(cab[esperada - 1]);
+      if (textoReal === '' && (def.nuevasCabeceras || []).indexOf(c[0]) >= 0) {
+        lineas.push('· ' + def.nombre + ' columna ' + c[2] + ': falta «' + c[1] + '»; el script la escribirá al leer o guardar cuentas.');
+        return;
+      }
       if (base(textoReal) !== base(c[1])) {
         fallos.push('   columna ' + c[2] + ': se esperaba «' + c[1] + '» y hay «' + textoReal + '»' +
           (real !== esperada ? ' → se usará la columna ' + colALetra(real) : ' → se usará igualmente la ' + c[2]));
@@ -523,7 +651,8 @@ function comprobarHojas() {
   else {
     problemas++;
     lineas.push('✗ La zona horaria del script (' + zScript + ') no coincide con la de la hoja (' + zHoja + '): ' +
-      'las fechas podrían guardarse un día antes. Cámbiala en Configuración del proyecto → Zona horaria.');
+      'las fechas podrían guardarse un día antes. Iguala las dos; lo normal es poner la hoja en Europe/Madrid ' +
+      '(Archivo → Configuración → Zona horaria).');
   }
   lineas.push(PropertiesService.getScriptProperties().getProperty('TOKEN')
     ? '✓ La propiedad TOKEN está puesta.'

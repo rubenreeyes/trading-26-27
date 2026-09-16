@@ -22,15 +22,25 @@
   --shadow:0 1px 2px rgba(0,0,0,.06); --radius:14px; --nav-h:64px;
   color-scheme: light;
 }
+/* Oscuro: automático con el sistema, salvo que el tema esté fijado a claro. */
 @media (prefers-color-scheme: dark){
-  :root{
-    --bg:#0e1219; --card:#181e29; --text:#e7ecf5; --muted:#9aa7bd; --line:#2a3444;
-    --accent:#60a5fa; --accent-ink:#0a1a33; --accent-soft:#1c2f4d;
-    --ok:#4ade80; --ok-soft:#12351f;
-    --warn:#fbbf24; --warn-soft:#3a2c0a; --danger:#f87171; --danger-soft:#431515;
-    --shadow:none;
-    color-scheme: dark;
+  :root:not([data-tema="claro"]){
+  --bg:#0e1219; --card:#181e29; --text:#e7ecf5; --muted:#9aa7bd; --line:#2a3444;
+  --accent:#60a5fa; --accent-ink:#0a1a33; --accent-soft:#1c2f4d;
+  --ok:#4ade80; --ok-soft:#12351f;
+  --warn:#fbbf24; --warn-soft:#3a2c0a; --danger:#f87171; --danger-soft:#431515;
+  --shadow:none;
+  color-scheme: dark;
   }
+}
+/* Oscuro fijado a mano en Ajustes. */
+:root[data-tema="oscuro"]{
+  --bg:#0e1219; --card:#181e29; --text:#e7ecf5; --muted:#9aa7bd; --line:#2a3444;
+  --accent:#60a5fa; --accent-ink:#0a1a33; --accent-soft:#1c2f4d;
+  --ok:#4ade80; --ok-soft:#12351f;
+  --warn:#fbbf24; --warn-soft:#3a2c0a; --danger:#f87171; --danger-soft:#431515;
+  --shadow:none;
+  color-scheme: dark;
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -320,7 +330,9 @@ const FRENOS = {
   semanal: 'Freno semanal activo: solo se gestiona lo abierto. El domingo se revisa qué ha pasado antes de volver a abrir.'
 };
 
-const CUENTAS = ['50K-A', '50K-B', '200K', '100K', 'Propia', 'Scalping'];
+// Las cuentas ya no son una lista fija: salen de la hoja Cuentas (ver cuentasEfectivas()).
+// Esto solo se usa como respaldo mientras la hoja no se haya traído todavía.
+const CUENTAS_RESPALDO = ['50K-A', '50K-B', '200K', 'Propia'];
 const ACTIVOS = ['XAUUSD', 'BTCUSD', 'TSLA', 'NVDA', 'META'];
 const ESTADOS_CANDIDATA = ['pendiente', 'entrada', 'descartada', 'siguiente semana'];
 
@@ -346,15 +358,37 @@ const CUENTAS_NOTICIAS = ['100K', '200K'];
 const AVISO_NOTICIAS = 'Cuentas de 100K-200K: ninguna apertura ni cierre manual en ±2 min de noticias de alto impacto. Anota las horas en la revisión de 7:30.';
 
 // Checklist de scalping: textos genéricos hasta que la estrategia esté escrita (se editan en Ajustes).
+// Riesgo por operación: el de la cuenta (columna M de la hoja) y atajos del formulario.
+const RIESGOS_RAPIDOS = [0.25, 0.3, 0.5, 0.75, 1];
+const RIESGO_DEFECTO_ORION = 0.5;      // Orion Funded
+const RIESGO_DEFECTO_GENERAL = 1;      // The Trading Pit y cuenta propia
+// El aviso de riesgo abierto salta 0,25 puntos por debajo de la pérdida diaria de la cuenta
+// (TTP: 3 % → 2,75 %; Orion: 1 % → 0,75 %).
+const MARGEN_AVISO = 0.25;
+const PERDIDA_DIARIA_ESTRECHA = 1.05;  // cuentas con pérdida diaria del 1 %: una posición
+const AVISO_UNA_POSICION = 'Una posición abierta por cuenta; dos solo si la primera está en break even.';
+const AVISO_MEDIANOCHE = 'Regla de medianoche: a las 23:00 de Madrid, si el flotante es ≥ 0,6 %, proteger (cerrar o break even). La pérdida diaria se mide sobre el equity de las 00:00 UTC.';
+const AVISO_IDENTICAS = 'Orion prohíbe operaciones idénticas entre cuentas de evaluación.';
+const FIRMA_ORION = 'orion';
+
+// Retiros y notas del domingo
+const REPARTO_DEFECTO = 80;
+const METODOS_RETIRO = ['transferencia', 'Rise', 'cripto', 'otro'];
+const TIPOS_NOTA = ['revision', 'calendario', 'mensual', 'expansion', 'libre'];
+
+// Sincronización automática con la hoja
+const SYNC_MINUTOS = 10;
+const SYNC_DIAS = 60;
+
 const CHECKLIST_SCALPING_DEFECTO = ['Condición 1', 'Condición 2', 'Condición 3', 'Condición 4', 'Condición 5'];
 
 // Botones de "Gestionar": qué se hace y por qué (checklist de gestión).
 const ACCIONES_GESTION = ['cierre parcial', 'break even', 'stop movido', 'otra'];
 // Cuentas que entran en el estado semanal del domingo (columna Estado de la hoja Cuentas).
-const ESTADOS_CUENTA_ACTIVA = ['activa', 'en curso'];
+const ESTADOS_CUENTA_ACTIVA = ['activa', 'en curso', 'aprobada'];   // cuentas con las que se opera
 const MONEDA_CUENTA = { 'Propia': '€' };   // el resto, en dólares
 const FASES_CUENTA = ['challenge', 'earning', 'propia', 'prevista'];
-const ESTADOS_CUENTA = ['activa', 'en curso', 'prevista', 'cerrada'];
+const ESTADOS_CUENTA = ['en curso', 'activa', 'aprobada', 'perdida', 'cerrada', 'prevista'];
 
 // Revisión mensual (primer domingo): condiciones para comprar el siguiente challenge, las cuatro a la vez.
 const CONDICIONES_EXPANSION = [
@@ -456,22 +490,35 @@ const state = {
   pantalla: LS.get('pantalla', null),         // formulario de pantalla completa abierto
   semanaSel: null,                            // semana elegida en Candidatas
   pasar: null,                                // pregunta del domingo: {fecha, uids}
-  domingo: LS.get('domingo', {}),             // { 'AAAA-MM-DD' (domingo): {paso, cuentas, revision, calendario, mensual} }
-  cuentasEdit: LS.get('cuentasEdit', {}),     // { cuenta: {campo: valor} } cambios hechos aquí sobre la hoja Cuentas
+  domingo: LS.get('domingo', {}),             // { 'AAAA-MM-DD' (domingo): {paso, cuentas} } (los textos van en Notas)
+  notas: LS.get('notas', []),                 // [{fecha, tipo, texto}] hoja Notas
+  retiros: LS.get('retiros', []),             // [{uid, fila?, fecha, cuenta, bruto, reparto, neto, metodo, notas}]
+  tema: LS.get('tema', 'auto'),               // claro | oscuro | auto (solo en este dispositivo)
 };
 if (!state.ajustes || typeof state.ajustes !== 'object') state.ajustes = {};
-const A0 = { url: '', token: '', fase: 0, cuentasSwing: CUENTAS_SWING_DEFECTO.slice(), checklistScalping: CHECKLIST_SCALPING_DEFECTO.slice() };
+const A0 = { url: '', token: '', fase: 0, checklistScalping: CHECKLIST_SCALPING_DEFECTO.slice() };
 Object.keys(A0).forEach((k) => { if (state.ajustes[k] === undefined) state.ajustes[k] = A0[k]; });
 if (!(state.ajustes.fase >= 0 && state.ajustes.fase <= 4)) state.ajustes.fase = 0;
-if (!Array.isArray(state.ajustes.cuentasSwing)) state.ajustes.cuentasSwing = CUENTAS_SWING_DEFECTO.slice();
 if (!Array.isArray(state.ajustes.checklistScalping) || state.ajustes.checklistScalping.length !== 5) state.ajustes.checklistScalping = CHECKLIST_SCALPING_DEFECTO.slice();
 ['operaciones', 'candidatas', 'estadoSemanal', 'backtest', 'cuentas', 'cola'].forEach((k) => { if (!Array.isArray(state[k])) state[k] = []; });
-['domingo', 'cuentasEdit'].forEach((k) => { if (!state[k] || typeof state[k] !== 'object' || Array.isArray(state[k])) state[k] = {}; });
+if (!state.domingo || typeof state.domingo !== 'object' || Array.isArray(state.domingo)) state.domingo = {};
+['notas', 'retiros'].forEach((k) => { if (!Array.isArray(state[k])) state[k] = []; });
+if (!['claro', 'oscuro', 'auto'].includes(state.tema)) state.tema = 'auto';
+aplicarTema();
 if (!TABS.concat(TABS_MAS).some((t) => t.id === state.tab)) state.tab = 'hoy';
-if (state.pantalla && !['op', 'gestion', 'cierre', 'cand', 'cuenta'].includes(state.pantalla.tipo)) state.pantalla = null;
+if (state.pantalla && !['op', 'gestion', 'cierre', 'cand', 'cuenta', 'retiro'].includes(state.pantalla.tipo)) state.pantalla = null;
 const borradores = { est: null, bt: null };   // formularios en línea de Candidatas y Ajustes (no se guardan)
 
 function guardar() { LS.set('tab', state.tab); }
+// El tema se aplica al documento; "auto" deja mandar al sistema.
+function aplicarTema() {
+  try {
+    const r = document.documentElement;
+    if (state.tema === 'auto') r.removeAttribute('data-tema'); else r.setAttribute('data-tema', state.tema);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', state.tema === 'oscuro' ? '#0e1219' : '#2563eb');
+  } catch (e) { /* antes de que exista el documento */ }
+}
 function guardarPantalla() { LS.set('pantalla', state.pantalla); }
 function faseActual() { return FASES[state.ajustes.fase] || FASES[0]; }
 function fechaTab() { return sumarDias(hoy(), state.offset); }
@@ -481,7 +528,13 @@ function semanaSel() { return state.semanaSel != null ? state.semanaSel : semana
 
 // --- Cola de sincronización -------------------------------------------------
 function configurado() { return !!(state.ajustes.url && state.ajustes.token); }
-const sync = { enCurso: false, error: '', ultima: LS.get('syncUltima', null), msgAjustes: null, msgCopia: null, importPendiente: null };
+const sync = { enCurso: false, trayendo: false, error: '', ultima: LS.get('syncUltima', null),
+  ultimaHoja: LS.get('ultimaHoja', null), msgAjustes: null, msgCopia: null, importPendiente: null };
+function haceMinutos(t) { return t ? Math.max(0, Math.round((Date.now() - t) / 60000)) : null; }
+function textoUltimaHoja() {
+  const m = haceMinutos(sync.ultimaHoja);
+  return m == null ? 'sin recuperar todavía' : m === 0 ? 'hace menos de 1 min' : m === 1 ? 'hace 1 min' : `hace ${m} min`;
+}
 
 // Un elemento por registro (k). Los cambios del mismo registro se fusionan.
 function encolar(k, accion, datos, ref) {
@@ -559,12 +612,13 @@ async function sincronizar() {
 }
 function estadoSync() {
   const n = state.cola.length, pend = n ? ` · ${n} pendiente${n > 1 ? 's' : ''}` : '';
+  const hoja = 'hoja ' + textoUltimaHoja();
   if (!configurado()) return ['idle', 'Sin configurar' + pend, 'toca para ir a Ajustes'];
+  if (sync.trayendo) return ['pend', 'Trayendo de la hoja…', ''];
   if (sync.enCurso) return ['pend', 'Enviando…', ''];
   if (sync.error) return ['err', 'Error: ' + sync.error + pend, 'toca para reintentar'];
-  if (n) return ['pend', `${n} pendiente${n > 1 ? 's' : ''}`, 'toca para reintentar'];
-  const h = sync.ultima ? new Date(sync.ultima).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '';
-  return ['ok', 'Sincronizado' + (h ? ' · ' + h : ''), ''];
+  if (n) return ['pend', `${n} pendiente${n > 1 ? 's' : ''}`, hoja];
+  return ['ok', 'Sincronizado', hoja];
 }
 function syncHTML() {
   const [cls, txt, sub] = estadoSync();
@@ -633,38 +687,117 @@ function guardarEstadoSemanal(x) {
     drawdown: num(x.drawdown), diasRentables: num(x.diasRentables), proximoRetiro: x.proximoRetiro || '',
     progreso: num(x.progreso), notas: x.notas || '' }, x.uid);
 }
+// Textos del domingo: una fila por fecha y tipo en la hoja Notas.
+function notaDe(fecha, tipo) { const n = state.notas.find((x) => x.fecha === fecha && x.tipo === tipo); return n ? String(n.texto || '') : ''; }
+function guardarNota(fecha, tipo, texto) {
+  const i = state.notas.findIndex((x) => x.fecha === fecha && x.tipo === tipo);
+  if (i >= 0) state.notas[i].texto = texto; else state.notas.push({ fecha, tipo, texto });
+  LS.set('notas', state.notas);
+  encolar('nota:' + fecha + ':' + tipo, 'nota', { fecha, tipo, texto });
+}
+function guardarRetiro(x) {
+  state.retiros.unshift(x); LS.set('retiros', state.retiros);
+  encolar('ret:' + x.uid, 'retiro', { fecha: x.fecha || '', cuenta: x.cuenta || '', bruto: numDinero(x.bruto),
+    reparto: num(x.reparto), neto: numDinero(x.neto), metodo: x.metodo || '', notas: x.notas || '' }, x.uid);
+}
+// Alta o edición de una cuenta: se guarda en local y se escribe en la hoja Cuentas.
+function guardarCuentaHoja(c) {
+  const nombre = String(c.cuenta).trim(), i = state.cuentas.findIndex((x) => String(x.cuenta).trim() === nombre);
+  if (i >= 0) state.cuentas[i] = Object.assign({}, state.cuentas[i], c); else state.cuentas.push(Object.assign({}, c));
+  LS.set('cuentas', state.cuentas);
+  const dinero = ['balance', 'perdidaDiaria', 'perdidaMaxima', 'objetivo', 'costeChallenge'], datos = {};
+  CAMPOS_CUENTA.forEach((f) => {
+    if (c[f] === undefined) return;
+    datos[f] = dinero.includes(f) ? numDinero(c[f]) : f === 'riesgoDefecto' ? num(c[f]) : String(c[f] == null ? '' : c[f]);
+  });
+  datos.cuenta = nombre;
+  encolar('cta:' + nombre, 'cuenta', datos);
+}
 function guardarBacktest(x) {
   state.backtest.unshift(x); LS.set('backtest', state.backtest);
   encolar('bt:' + x.uid, 'backtest', { fecha: x.fecha || '', estrategia: x.estrategia || '', activo: x.activo || '',
     direccion: x.direccion || '', checklist: x.checklist || '', resultadoR: num(x.resultadoR), notas: x.notas || '' }, x.uid);
 }
 
-// --- Riesgo (solo informativo, calculado en local) --------------------------
-function faseCuenta(c) {
-  const f = cuentasEfectivas().find((x) => String(x.cuenta).trim() === c);
-  return String((f && f.fase) || FASE_CUENTA_DEFECTO[c] || '').trim().toLowerCase();
+// --- Cuentas (hoja Cuentas) -------------------------------------------------
+const CAMPOS_CUENTA = ['cuenta', 'firma', 'producto', 'balance', 'fase', 'perdidaDiaria', 'perdidaMaxima', 'objetivo',
+  'fechaLimite', 'estado', 'uso', 'notas', 'riesgoDefecto', 'costeChallenge'];
+// Filas que son cuentas de verdad: con nombre y con balance o fase (las notas sueltas no cuentan).
+function cuentasEfectivas() {
+  return state.cuentas
+    .filter((c) => String(c.cuenta || '').trim() !== '' && (numDinero(c.balance) !== '' || String(c.fase || '').trim() !== ''))
+    .map((c) => Object.assign({}, c, { cuenta: String(c.cuenta).trim() }));
 }
-function limiteCuenta(c) { return faseCuenta(c) === 'challenge' ? RIESGO.abiertoChallenge : RIESGO.abiertoMax; }
-// Posiciones abiertas de swing en una cuenta (una en break even sigue siendo posición).
+function cuentaDe(nombre) { return cuentasEfectivas().find((c) => c.cuenta === String(nombre || '').trim()) || null; }
+function cuentaActiva(c) { return ESTADOS_CUENTA_ACTIVA.includes(String(c.estado || '').trim().toLowerCase()); }
+function cuentasOperables() { return cuentasEfectivas().filter(cuentaActiva); }
+// Cuentas que se marcan por defecto en una operación, según el uso de la hoja.
+function cuentasDeTipo(tipo) {
+  const op = cuentasOperables();
+  if (!op.length) return state.cuentas.length ? [] : CUENTAS_RESPALDO.slice();
+  const suyas = op.filter((c) => (String(c.uso || '').toLowerCase() === 'scalping') === (tipo === 'scalping'));
+  return (suyas.length ? suyas : op).map((c) => c.cuenta);
+}
+function nombresParaChips() { const n = cuentasOperables().map((c) => c.cuenta); return n.length ? n : CUENTAS_RESPALDO.slice(); }
+function esOrion(c) { return String((c && c.firma) || '').toLowerCase().indexOf(FIRMA_ORION) >= 0; }
+function orionEvaluacion(c) { return esOrion(c) && (String(c && c.fase).toLowerCase() === 'challenge' || String(c && c.estado).toLowerCase() === 'en curso'); }
+function faseCuenta(nombre) { const c = cuentaDe(nombre); return String((c && c.fase) || FASE_CUENTA_DEFECTO[nombre] || '').trim().toLowerCase(); }
+
+// Límites de la cuenta en % del balance, sacados de la hoja (F pérdida diaria, G máxima).
+// El aviso salta 0,25 puntos por debajo de la pérdida diaria: TTP 3 % → 2,75 %; Orion 1 % → 0,75 %.
+function limitesCuenta(nombre) {
+  const c = cuentaDe(nombre), bal = c ? numDinero(c.balance) : '';
+  const pd = c ? numDinero(c.perdidaDiaria) : '', pm = c ? numDinero(c.perdidaMaxima) : '';
+  const diaria = bal > 0 && pd !== '' ? 100 * pd / bal : null;
+  const maxima = bal > 0 && pm !== '' ? 100 * pm / bal : null;
+  const aviso = diaria != null ? Math.max(0.25, diaria - MARGEN_AVISO)
+    : (faseCuenta(nombre) === 'challenge' ? RIESGO.abiertoChallenge : RIESGO.abiertoMax);
+  return { diaria, maxima, aviso, unaPosicion: diaria != null && diaria <= PERDIDA_DIARIA_ESTRECHA };
+}
+function limiteCuenta(nombre) { return limitesCuenta(nombre).aviso; }
+function riesgoDefectoCuenta(nombre) {
+  const c = cuentaDe(nombre), v = c ? num(c.riesgoDefecto) : '';
+  if (v !== '' && v > 0) return v;
+  return esOrion(c) ? RIESGO_DEFECTO_ORION : RIESGO_DEFECTO_GENERAL;
+}
+function totalRetirado(cuenta) { return state.retiros.filter((r) => r.cuenta === cuenta).reduce((t, r) => t + (numDinero(r.neto) || 0), 0); }
+function totalRetiradoCurso() { return state.retiros.reduce((t, r) => t + (numDinero(r.neto) || 0), 0); }
+function retirosDelMes(ym) { return state.retiros.filter((r) => String(r.fecha || '').slice(0, 7) === ym); }
+function costeChallenges() { return cuentasEfectivas().reduce((t, c) => t + (numDinero(c.costeChallenge) || 0), 0); }
+
+// --- Riesgo abierto (solo informativo, calculado en local) ------------------
 function posicionesCuenta(c, excluirUid) {
   return abiertas().filter((o) => o.uid !== excluirUid && o.tipo !== 'scalping' && (o.cuentas || []).includes(c)).length;
 }
-// Riesgo abierto de una cuenta: suma del riesgo % de las abiertas que no están en break even.
+// Suma del riesgo % de las abiertas que no están en break even.
 function riesgoCuenta(c, excluirUid) {
   return abiertas().filter((o) => o.uid !== excluirUid && !o.be && (o.cuentas || []).includes(c))
     .reduce((t, o) => t + (num(o.riesgo) || 0), 0);
 }
+function cuentasConAbiertas() {
+  const vistas = [];
+  abiertas().forEach((o) => (o.cuentas || []).forEach((c) => { if (!vistas.includes(c)) vistas.push(c); }));
+  return vistas;
+}
 function resumenRiesgo() {
-  const cuentas = CUENTAS.filter((c) => abiertas().some((o) => (o.cuentas || []).includes(c)));
-  return cuentas.map((c) => ({ cuenta: c, riesgo: riesgoCuenta(c), limite: limiteCuenta(c), posiciones: posicionesCuenta(c), fase: faseCuenta(c) }));
+  return cuentasConAbiertas().map((c) => {
+    const L = limitesCuenta(c);
+    return { cuenta: c, riesgo: riesgoCuenta(c), limite: L.aviso, diaria: L.diaria, unaPosicion: L.unaPosicion,
+      posiciones: posicionesCuenta(c), fase: faseCuenta(c), orion: esOrion(cuentaDe(c)) };
+  });
 }
 function hayNoticias() { return abiertas().some((o) => (o.cuentas || []).some((c) => CUENTAS_NOTICIAS.includes(c))); }
-// Riesgo que corresponde a una operación nueva según las posiciones que ya hay en sus cuentas.
+// Cuentas de pérdida diaria estrecha (Orion) con posición abierta: regla de medianoche.
+function cuentasMedianoche() { return cuentasConAbiertas().filter((c) => limitesCuenta(c).unaPosicion); }
+// Riesgo que corresponde a una operación nueva: el de sus cuentas (el menor si son distintos).
 function riesgoPropuesto(o) {
-  if (o.tipo === 'scalping') return RIESGO.scalping;
-  const max = Math.max(0, ...(o.cuentas || []).map((c) => posicionesCuenta(c, o.uid)));
-  return max >= 2 ? RIESGO.tercera : RIESGO.normal;
+  const cs = o.cuentas || [];
+  if (!cs.length) return o.tipo === 'scalping' ? RIESGO.scalping : RIESGO_DEFECTO_GENERAL;
+  return Math.min.apply(null, cs.map(riesgoDefectoCuenta));
 }
+function riesgosPorCuenta(o) { return (o.cuentas || []).map((c) => ({ cuenta: c, riesgo: riesgoDefectoCuenta(c) })); }
+function riesgosDistintos(o) { const v = riesgosPorCuenta(o).map((x) => x.riesgo); return v.length > 1 && v.some((x) => x !== v[0]); }
+
 // Estado de validación del formulario de operación: bloqueos y avisos.
 function validarOp(p) {
   const o = p.o, nueva = !state.operaciones.some((x) => x.uid === o.uid);
@@ -678,7 +811,7 @@ function validarOp(p) {
     const llenas = (o.cuentas || []).filter((c) => posicionesCuenta(c, o.uid) >= RIESGO.maxPosiciones);
     if (llenas.length) r.duro = `Máximo tres posiciones: ${llenas.join(', ')} ya tiene${llenas.length > 1 ? 'n' : ''} tres abiertas.`;
     else {
-      const dos = (o.cuentas || []).filter((c) => posicionesCuenta(c, o.uid) === 2);
+      const dos = (o.cuentas || []).filter((c) => posicionesCuenta(c, o.uid) === 2 && !limitesCuenta(c).unaPosicion);
       if (dos.length) {
         const ch = dos.filter((c) => faseCuenta(c) === 'challenge');
         r.avisos.push({ cls: '', t: `Tercera posición en ${dos.join(', ')}: riesgo 0,75 %.` + (ch.length ? ` En challenge (${ch.join(', ')}) el plan dice 1 % siempre.` : '') });
@@ -691,18 +824,42 @@ function validarOp(p) {
     const hoyN = state.operaciones.filter((x) => x.tipo === 'scalping' && x.fechaApertura === o.fechaApertura && x.uid !== o.uid).length;
     if (hoyN >= RIESGO.scalpingDia) r.avisos.push({ cls: 'rojo', t: `Ya hay ${hoyN} operaciones de scalping este día: el máximo es ${RIESGO.scalpingDia}.` });
   }
+  // Cuentas de pérdida diaria estrecha (Orion): una posición por cuenta, dos solo con break even
+  (o.cuentas || []).forEach((c) => {
+    if (!limitesCuenta(c).unaPosicion) return;
+    const otras = abiertas().filter((x) => x.uid !== o.uid && (x.cuentas || []).includes(c));
+    const sinBE = otras.filter((x) => !x.be);
+    if (nueva && sinBE.length) r.avisos.push({ cls: 'rojo', t: `${c}: ya hay ${sinBE.length} posición(es) abiertas sin break even. ${AVISO_UNA_POSICION}` });
+  });
+  // Orion: nunca la misma operación en dos cuentas en evaluación
+  const orionSel = (o.cuentas || []).filter((c) => orionEvaluacion(cuentaDe(c)));
+  if (orionSel.length >= 2) r.avisos.push({ cls: 'rojo', t: `${AVISO_IDENTICAS} Has marcado ${orionSel.join(', ')}.` });
+  else if (orionSel.length === 1 && String(o.activo || '').trim()) {
+    const iguales = state.operaciones.filter((x) => x.uid !== o.uid && !cerrada(x) && String(x.activo).toUpperCase() === String(o.activo).toUpperCase()
+      && x.direccion === o.direccion && x.fechaApertura === o.fechaApertura
+      && (x.cuentas || []).some((c) => !orionSel.includes(c) && orionEvaluacion(cuentaDe(c))));
+    if (iguales.length) {
+      const otras = iguales.map((x) => (x.cuentas || []).filter((c) => orionEvaluacion(cuentaDe(c))).join(', ')).join('; ');
+      r.avisos.push({ cls: 'rojo', t: `${AVISO_IDENTICAS} Hoy ya hay ${esc(o.activo)} ${o.direccion} en ${otras}.` });
+    }
+  }
+  // Riesgo abierto resultante en cada cuenta, con el límite de la propia cuenta
+  (o.cuentas || []).forEach((c) => {
+    const L = limitesCuenta(c), tot = riesgoCuenta(c, o.uid) + (o.be ? 0 : (num(o.riesgo) || 0));
+    if (tot > L.aviso + 1e-9) {
+      r.avisos.push({ cls: 'rojo', t: `${c}: el riesgo abierto quedaría en ${fmt(tot, 2)} % (aviso a ${fmt(L.aviso, 2)} %` +
+        (L.diaria != null ? `, pérdida diaria ${fmt(L.diaria, 2)} %` : '') + ').' });
+    }
+  });
+  if (nueva && (o.cuentas || []).some((c) => CUENTAS_NOTICIAS.includes(c))) r.avisos.push({ cls: 'info', t: AVISO_NOTICIAS });
+  if (nueva && (o.cuentas || []).some((c) => limitesCuenta(c).unaPosicion)) r.avisos.push({ cls: 'info', t: AVISO_MEDIANOCHE });
+  r.puede = !r.duro && (!r.blandos.length || (p.forzar && String(p.motivoForzado || '').trim() !== ''));
   const ratio = ratioDe(o);
   if (nueva) {
     if (ratio == null) { if (!r.duro) r.duro = 'Falta el TP1 para calcular el ratio.'; }
     else if (ratio < RATIO_MINIMO) r.blandos.push(`ratio 1:${fmt(ratio, 2)} por debajo de 1:${RATIO_MINIMO}`);
     if (!checklistOK(o)) r.blandos.push(`checklist incompleta (${['c1', 'c2', 'c3', 'c4', 'c5'].filter((k) => o[k]).length} de 5)`);
   }
-  // Riesgo abierto resultante en cada cuenta (informativo)
-  (o.cuentas || []).forEach((c) => {
-    const tot = riesgoCuenta(c, o.uid) + (o.be ? 0 : (num(o.riesgo) || 0)), lim = limiteCuenta(c);
-    if (tot > lim + 1e-9) r.avisos.push({ cls: 'rojo', t: `${c}: el riesgo abierto quedaría en ${fmt(tot, 2)} % (máximo ${fmt(lim, 2)} %${lim === RIESGO.abiertoChallenge ? ', challenge' : ''}).` });
-  });
-  if (nueva && (o.cuentas || []).some((c) => CUENTAS_NOTICIAS.includes(c))) r.avisos.push({ cls: 'info', t: AVISO_NOTICIAS });
   r.puede = !r.duro && (!r.blandos.length || (p.forzar && String(p.motivoForzado || '').trim() !== ''));
   return r;
 }
@@ -753,11 +910,8 @@ function nombreMes(ym) { const d = parseISO(ym + '-01'); return cap(d.toLocaleDa
 function pct(x) { return x == null ? '—' : Math.round(100 * x) + ' %'; }
 function fmtR(r) { return (r > 0 ? '+' : '') + fmt(r, 2); }
 
-// --- Cuentas (hoja Cuentas con los cambios hechos aquí) ---------------------
-const CAMPOS_CUENTA = ['firma', 'producto', 'balance', 'fase', 'perdidaDiaria', 'perdidaMaxima', 'objetivo', 'fechaLimite', 'estado', 'uso', 'notas'];
-function cuentasEfectivas() { return state.cuentas.map((c) => Object.assign({}, c, state.cuentasEdit[String(c.cuenta).trim()] || {})); }
-function cuentaActiva(c) { return ESTADOS_CUENTA_ACTIVA.includes(String(c.estado || '').trim().toLowerCase()); }
-// Fecha de una celda leída de la hoja: texto AAAA-MM-DD, fecha ISO con hora (celda de tipo fecha) o dd/mm/aaaa.
+// --- Fechas y estado de las cuentas ---------------------------------------
+// Fecha de una celda leída de la hoja: texto AAAA-MM-DD, fecha ISO con hora o dd/mm/aaaa.
 function fechaDeHoja(v) {
   const t = String(v == null ? '' : v).trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
@@ -794,7 +948,29 @@ function pasosDomingo(d) {
   return p.concat([{ id: 'calendario', t: 'Calendario económico' }, { id: 'candidatas', t: 'Candidatas' }, { id: 'hecha', t: 'Planificación hecha' }]);
 }
 // Calendario de la semana en curso (el que se escribió el domingo que la planifica).
-function calendarioDe(d) { return ((state.domingo[fechaISO(domingoDeSemana(semanaPlan(d)))] || {}).calendario || '').trim(); }
+function calendarioDe(d) { return notaDe(fechaISO(domingoDeSemana(semanaPlan(d))), 'calendario').trim(); }
+// Los textos del domingo viven en la hoja Notas, una fila por fecha y tipo.
+function ponerNotaLocal(fecha, tipo, texto) {
+  const i = state.notas.findIndex((x) => x.fecha === fecha && x.tipo === tipo);
+  if (i >= 0) state.notas[i].texto = texto; else state.notas.push({ fecha, tipo, texto });
+  LS.set('notas', state.notas);
+}
+function erroresMes(iso) {
+  const l = notaDe(iso, 'mensual').split('\n').map((x) => x.replace(/^\s*\d\)\s*/, '').trim());
+  return [l[0] || '', l[1] || '', l[2] || ''];
+}
+function textoErrores(es) { return es.map((e, i) => `${i + 1}) ${e.trim()}`).filter((l) => l.slice(3).trim()).join('\n'); }
+function expansionDe(iso) {
+  const t = notaDe(iso, 'expansion'), cond = {};
+  const mc = t.match(/Condiciones cumplidas:\s*([^\n]*)/);
+  if (mc) mc[1].split(',').map((x) => x.trim()).filter((x) => x && x !== 'ninguna').forEach((id) => { cond[id] = true; });
+  const md = t.match(/Decisi[oó]n:\s*([^\n]*)/), mn = t.match(/Coste frente a retiros:\s*([\s\S]*)$/);
+  return { cond, decision: md && md[1].trim() !== '—' ? md[1].trim() : '', notas: mn ? mn[1].trim() : '' };
+}
+function textoExpansion(e) {
+  const ids = CONDICIONES_EXPANSION.filter((c) => e.cond[c.id]).map((c) => c.id);
+  return `Condiciones cumplidas: ${ids.join(', ') || 'ninguna'}\nDecisión: ${e.decision || '—'}\nCoste frente a retiros: ${e.notas || ''}`;
+}
 
 function cumplimientoMes(ref) {
   let marcados = 0, si = 0;
@@ -817,51 +993,100 @@ async function probarConexion() {
   } catch (e) { sync.msgAjustes = { texto: 'Error: ' + errorLegible(e), err: true }; }
   render();
 }
-async function recuperarDeLaHoja() {
-  if (!configurado()) { sync.msgAjustes = { texto: 'Falta la URL o el token.', err: true }; render(); return; }
-  sync.msgAjustes = { texto: 'Recuperando…' }; render();
+// Fila de Operaciones de la hoja → operación local.
+function opDeHoja(f) {
+  return { uid: 'hoja-op-' + f.id, id: f.id, fechaApertura: fechaDeHoja(f.fechaApertura), tipo: String(f.tipo || ''),
+    activo: String(f.activo || ''), direccion: String(f.direccion || ''),
+    cuentas: String(f.cuentas || '').split(',').map((x) => x.trim()).filter(Boolean),
+    entrada: f.entrada, stop: f.stop, tp1: f.tp1, riesgo: f.riesgo,
+    c1: !!f.c1, c2: !!f.c2, c3: !!f.c3, c4: !!f.c4, c5: !!f.c5, gestion: String(f.gestion || ''),
+    fechaCierre: fechaDeHoja(f.fechaCierre), resultadoR: f.resultadoR, dentroReglas: String(f.dentroReglas || ''),
+    motivo: String(f.motivo || ''), aprendizaje: String(f.aprendizaje || ''),
+    be: /break ?even|\bBE\b/i.test(String(f.gestion || '')) };
+}
+/**
+ * Trae la hoja entera y la fusiona con el estado local: manda la hoja, salvo lo
+ * que siga pendiente de enviar en la cola. Se llama al abrir la app y cada
+ * SYNC_MINUTOS minutos; con un formulario abierto se salta para no repintarlo.
+ */
+async function traerDeLaHoja(silencioso) {
+  if (!configurado()) { if (!silencioso) { sync.msgAjustes = { texto: 'Falta la URL o el token.', err: true }; render(); } return; }
+  if (sync.trayendo || (silencioso && state.pantalla)) return;
+  sync.trayendo = true;
+  if (!silencioso) { sync.msgAjustes = { texto: 'Recuperando…' }; render(); } else pintarSync();
   try {
-    const dias = await llamarScript('GET', { que: 'dias', desde: CURSO_INICIO });
+    const desde = fechaISO(sumarDias(hoy(), -SYNC_DIAS));
+    const [dias, ops, cand, cue, est, notas, ret] = await Promise.all([
+      llamarScript('GET', { que: 'dias', desde }), llamarScript('GET', { que: 'operaciones' }),
+      llamarScript('GET', { que: 'candidatas' }), llamarScript('GET', { que: 'cuentas' }),
+      llamarScript('GET', { que: 'estado' }), llamarScript('GET', { que: 'notas' }), llamarScript('GET', { que: 'retiros' })
+    ]);
+    const pendiente = (k) => state.cola.some((c) => c.k === k);
+
     (dias.filas || []).forEach((f) => {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(f.fecha || ''))) return;
-      guardarRegistro(f.fecha, { rev730: !!f.rev730, ny1530: !!f.ny1530, formacion: !!f.formacion,
-        planificacion: !!f.planificacion, reglas: String(f.reglas || ''), reglaIncumplida: String(f.reglaIncumplida || ''),
-        freno: String(f.freno || ''), notas: String(f.notas || '') });
+      const iso = fechaDeHoja(f.fecha); if (!iso || pendiente('dia:' + iso)) return;
+      state.registro[iso] = { rev730: !!f.rev730, ny1530: !!f.ny1530, formacion: !!f.formacion, planificacion: !!f.planificacion,
+        reglas: String(f.reglas || ''), reglaIncumplida: String(f.reglaIncumplida || ''), freno: String(f.freno || ''), notas: String(f.notas || '') };
     });
-    const ops = await llamarScript('GET', { que: 'operaciones' });
-    const pendientesOp = state.operaciones.filter((o) => o.id == null);
-    state.operaciones = (ops.filas || []).map((f) => ({
-      uid: 'hoja-op-' + f.id, id: f.id, fechaApertura: f.fechaApertura || '', tipo: String(f.tipo || ''),
-      activo: String(f.activo || ''), direccion: String(f.direccion || ''),
-      cuentas: String(f.cuentas || '').split(',').map((s) => s.trim()).filter(Boolean),
-      entrada: f.entrada, stop: f.stop, tp1: f.tp1, riesgo: f.riesgo,
-      c1: !!f.c1, c2: !!f.c2, c3: !!f.c3, c4: !!f.c4, c5: !!f.c5, gestion: String(f.gestion || ''),
-      fechaCierre: f.fechaCierre || '', resultadoR: f.resultadoR, dentroReglas: String(f.dentroReglas || ''),
-      motivo: String(f.motivo || ''), aprendizaje: String(f.aprendizaje || ''),
-      be: /break ?even|\bBE\b/i.test(String(f.gestion || ''))
-    })).reverse().concat(pendientesOp);
+    LS.set('registro', state.registro);
+
+    const opsPend = state.operaciones.filter((o) => pendiente('op:' + o.uid));
+    const idsPend = opsPend.map((o) => o.id).filter((x) => x != null);
+    state.operaciones = opsPend.concat((ops.filas || []).filter((f) => !idsPend.includes(f.id)).map(opDeHoja).reverse());
     LS.set('operaciones', state.operaciones);
-    const cand = await llamarScript('GET', { que: 'candidatas' });
-    const pendientesCand = state.candidatas.filter((c) => c.fila == null);
-    state.candidatas = (cand.filas || []).map((f) => ({
-      uid: 'hoja-cand-' + f.fila, fila: f.fila, fecha: f.fecha || '', activo: String(f.activo || ''),
-      direccion: String(f.direccion || ''), zona: f.zona, stop: f.stop, tp1: f.tp1,
-      estado: String(f.estado || ''), notas: String(f.notas || '')
-    })).concat(pendientesCand);
+
+    const candPend = state.candidatas.filter((c) => pendiente('cand:' + c.uid));
+    const filasPend = candPend.map((c) => c.fila).filter((x) => x != null);
+    state.candidatas = candPend.concat((cand.filas || []).filter((f) => !filasPend.includes(f.fila)).map((f) => ({
+      uid: 'hoja-cand-' + f.fila, fila: f.fila, fecha: fechaDeHoja(f.fecha), activo: String(f.activo || ''),
+      direccion: String(f.direccion || ''), zona: f.zona, stop: f.stop, tp1: f.tp1, estado: String(f.estado || ''), notas: String(f.notas || '')
+    })));
     LS.set('candidatas', state.candidatas);
-    const cu = await llamarScript('GET', { que: 'cuentas' });
-    state.cuentas = cu.filas || []; LS.set('cuentas', state.cuentas);
-    const est = await llamarScript('GET', { que: 'estado' });
-    const pendientesEst = state.estadoSemanal.filter((x) => state.cola.some((c) => c.k === 'est:' + x.uid));
-    state.estadoSemanal = pendientesEst.concat((est.filas || []).map((f) => ({
+
+    const estPend = state.estadoSemanal.filter((x) => pendiente('est:' + x.uid));
+    state.estadoSemanal = estPend.concat((est.filas || []).map((f) => ({
       uid: 'hoja-est-' + f.fila, fila: f.fila, fecha: fechaDeHoja(f.fecha), cuenta: String(f.cuenta || '').trim(), balance: f.balance,
       drawdown: f.drawdown, diasRentables: f.diasRentables, proximoRetiro: fechaDeHoja(f.proximoRetiro), progreso: f.progreso, notas: String(f.notas || '')
     })).reverse());
     LS.set('estadoSemanal', state.estadoSemanal);
-    sync.msgAjustes = { texto: `Recuperado de la hoja: ${(dias.filas || []).length} día(s), ${(ops.filas || []).length} operación(es), ${(cand.filas || []).length} candidata(s), ${state.cuentas.length} cuenta(s) y ${(est.filas || []).length} estado(s) semanales.` };
-  } catch (e) { sync.msgAjustes = { texto: 'Error: ' + errorLegible(e), err: true }; }
-  render();
+
+    state.notas = (notas.filas || []).map((f) => ({ fecha: fechaDeHoja(f.fecha), tipo: String(f.tipo || '').trim(), texto: String(f.texto || '') }))
+      .filter((x) => x.fecha && x.tipo);
+    state.cola.filter((c) => c.accion === 'nota').forEach((c) => {     // lo pendiente manda sobre la hoja
+      const i = state.notas.findIndex((x) => x.fecha === c.datos.fecha && x.tipo === c.datos.tipo);
+      if (i >= 0) state.notas[i].texto = c.datos.texto; else state.notas.push({ fecha: c.datos.fecha, tipo: c.datos.tipo, texto: c.datos.texto });
+    });
+    LS.set('notas', state.notas);
+
+    const retPend = state.retiros.filter((x) => pendiente('ret:' + x.uid));
+    state.retiros = retPend.concat((ret.filas || []).map((f) => ({
+      uid: 'hoja-ret-' + f.fila, fila: f.fila, fecha: fechaDeHoja(f.fecha), cuenta: String(f.cuenta || '').trim(),
+      bruto: f.bruto, reparto: f.reparto, neto: f.neto, metodo: String(f.metodo || ''), notas: String(f.notas || '')
+    })).reverse());
+    LS.set('retiros', state.retiros);
+
+    state.cuentas = (cue.filas || []).map((f) => Object.assign({}, f, { fechaLimite: fechaDeHoja(f.fechaLimite) }));
+    state.cola.filter((c) => c.accion === 'cuenta').forEach((c) => {
+      const i = state.cuentas.findIndex((x) => String(x.cuenta).trim() === c.datos.cuenta);
+      if (i >= 0) state.cuentas[i] = Object.assign({}, state.cuentas[i], c.datos); else state.cuentas.push(Object.assign({}, c.datos));
+    });
+    LS.set('cuentas', state.cuentas);
+
+    sync.ultimaHoja = Date.now(); LS.set('ultimaHoja', sync.ultimaHoja); sync.error = '';
+    if (!silencioso) {
+      sync.msgAjustes = { texto: `Recuperado de la hoja: ${(dias.filas || []).length} día(s), ${(ops.filas || []).length} operación(es), ` +
+        `${(cand.filas || []).length} candidata(s), ${cuentasEfectivas().length} cuenta(s), ${(est.filas || []).length} estado(s) semanales, ` +
+        `${state.notas.length} nota(s) y ${(ret.filas || []).length} retiro(s).` };
+    }
+  } catch (e) {
+    if (silencioso) sync.error = errorLegible(e);
+    else sync.msgAjustes = { texto: 'Error: ' + errorLegible(e), err: true };
+  }
+  sync.trayendo = false;
+  if (state.pantalla) pintarSync(); else render();
 }
+function recuperarDeLaHoja() { return traerDeLaHoja(false); }
+
 function exportarJSON() {
   const out = { app: 'trading2627', version: 1, fecha: new Date().toISOString(), datos: {} };
   try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('trading2627:')) out.datos[k] = localStorage.getItem(k); } } catch (e) {}
@@ -938,6 +1163,8 @@ function avisosHoyHTML() {
     h += `<div class="aviso rojo">${esc(x.cuenta)}: riesgo abierto ${fmt(x.riesgo, 2)} % (máximo ${fmt(x.limite, 2)} %).</div>`;
   });
   if (hayNoticias()) h += `<div class="aviso">${esc(AVISO_NOTICIAS)}</div>`;
+  const med = cuentasMedianoche();
+  if (med.length) h += `<div class="aviso rojo">${esc(med.join(', '))}: ${esc(AVISO_MEDIANOCHE)}</div>`;
   return h;
 }
 function calendarioHoyHTML(d) {
@@ -1076,7 +1303,7 @@ function viewOperaciones() {
 // --- Pantallas completas: operación, gestión, cierre y candidata -----------
 function abrirNuevaOp(base, candUid) {
   const o = Object.assign({ uid: uid(), fechaApertura: fechaISO(hoy()), tipo: 'swing', activo: '', direccion: 'largo',
-    cuentas: state.ajustes.cuentasSwing.slice(), entrada: '', stop: '', tp1: '', riesgo: '',
+    cuentas: cuentasDeTipo('swing'), entrada: '', stop: '', tp1: '', riesgo: '',
     c1: false, c2: false, c3: false, c4: false, c5: false, gestion: '', fechaCierre: '', resultadoR: '',
     dentroReglas: '', motivo: '', aprendizaje: '', be: false }, base || {});
   o.riesgo = fmtRiesgo(riesgoPropuesto(o));
@@ -1097,6 +1324,15 @@ function selectorActivo(dataO, valor, otro) {
       <option value="otro" ${sel === 'otro' ? 'selected' : ''}>Otro…</option></select>
     ${sel === 'otro' ? `<input type="text" data-o="${dataO}" data-f="activo" value="${esc(valor)}" placeholder="Símbolo, p. ej. AAPL" autocapitalize="characters" autocomplete="off" style="margin-top:8px">` : ''}`;
 }
+// Riesgo por defecto de cada cuenta marcada (columna M de la hoja).
+function riesgosHTML(o) {
+  const rs = riesgosPorCuenta(o);
+  if (!rs.length) return 'Marca al menos una cuenta.';
+  const lista = rs.map((x) => `${esc(x.cuenta)} ${fmtRiesgo(x.riesgo)} %`).join(' · ');
+  return riesgosDistintos(o)
+    ? `Riesgo por cuenta: ${lista}. <b>En la hoja se guarda un solo riesgo por operación</b>: si necesitas porcentajes distintos, haz una operación por grupo de cuentas.`
+    : `Riesgo por defecto de estas cuentas: ${lista}.`;
+}
 function avisosOpHTML(v) {
   return (v.duro ? `<div class="aviso rojo">${esc(v.duro)}</div>` : '') + v.avisos.map((a) => `<div class="aviso ${a.cls}">${esc(a.t)}</div>`).join('');
 }
@@ -1109,9 +1345,11 @@ function viewPantallaOp(p) {
     ${campo('Tipo', seg('pTipo', o.tipo, ['swing', 'scalping']))}
     ${campo('Activo', selectorActivo('po', o.activo, p.activoOtro))}
     ${campo('Dirección', seg('pDir', o.direccion, ['largo', 'corto']))}
-    ${campo('Cuentas', `<div class="chips">${CUENTAS.map((c) => `<button class="${(o.cuentas || []).includes(c) ? 'on' : ''}" data-act="pCuenta" data-v="${esc(c)}">${esc(c)}</button>`).join('')}</div>`)}
+    ${campo('Cuentas', `<div class="chips">${nombresParaChips().map((c) => `<button class="${(o.cuentas || []).includes(c) ? 'on' : ''}" data-act="pCuenta" data-v="${esc(c)}">${esc(c)}</button>`).join('')}</div>`)}
     <div class="f2">${campo('Fecha', inpFecha('po', 'fechaApertura', o.fechaApertura))}
       ${campo('Riesgo %', inpNum('po', 'riesgo', o.riesgo, '1'))}</div>
+    <div class="chips">${RIESGOS_RAPIDOS.map((x) => `<button class="${num(o.riesgo) === x ? 'on' : ''}" data-act="pRiesgo" data-v="${x}">${fmtRiesgo(x)} %</button>`).join('')}</div>
+    <p class="small muted" style="margin-top:8px">${riesgosHTML(o)}</p>
     <div class="f3">${campo('Entrada', inpNum('po', 'entrada', o.entrada, '0'))}
       ${campo('Stop', inpNum('po', 'stop', o.stop, '0'))}
       ${campo('TP1', inpNum('po', 'tp1', o.tp1, '0'))}</div>
@@ -1201,7 +1439,8 @@ function viewPantallaCand(p) {
 }
 function viewPantalla() {
   const p = state.pantalla;
-  return { op: viewPantallaOp, gestion: viewPantallaGestion, cierre: viewPantallaCierre, cand: viewPantallaCand, cuenta: viewPantallaCuenta }[p.tipo](p);
+  return { op: viewPantallaOp, gestion: viewPantallaGestion, cierre: viewPantallaCierre, cand: viewPantallaCand,
+    cuenta: viewPantallaCuenta, retiro: viewPantallaRetiro }[p.tipo](p);
 }
 // Repinta solo las partes vivas de la pantalla (ratio, avisos, botón) sin perder el foco.
 function pintarPantalla() {
@@ -1219,6 +1458,13 @@ function pintarPantalla() {
     const o = opDe(p.uid), rs = o ? rDeSalida(o, p.salida) : null;
     const t = $('#cRcalc'); if (t) t.textContent = rs == null ? 'Con el precio de salida se calcula el R.' : 'Calculado: ' + (rs > 0 ? '+' : '') + fmt(rs, 2) + ' R';
     const b = $('#btnC'); if (b) b.disabled = !cierreValido(p);
+  } else if (p.tipo === 'cuenta') {
+    const b = $('#btnCuenta'); if (b) b.disabled = !String(p.k.cuenta || '').trim();
+  } else if (p.tipo === 'retiro') {
+    const calc = netoRetiro(p), t = $('#netoCalc');
+    if (t) t.textContent = calc === '' ? 'Escribe el bruto y el reparto y se calcula el neto.' : `Calculado: ${fmtDinero(calc, p.cuenta)} (se usa si dejas el campo vacío).`;
+    const b = $('#btnRet');
+    if (b) b.disabled = !(/^\d{4}-\d{2}-\d{2}$/.test(p.fecha || '') && (numDinero(p.neto) !== '' || calc !== ''));
   } else if (p.tipo === 'cand') {
     const r = $('#ratioCand'); if (r) r.innerHTML = tagRatio(ratioCand(p.c));
     const b = $('#btnCand'); if (b) b.disabled = !String(p.c.activo || '').trim();
@@ -1229,7 +1475,7 @@ function pintarPantalla() {
 const abiertosDet = {};   // <details> abiertos, para que no se cierren al repintar
 function viewCandidatas() {
   const w = semanaSel(), dom = domingoDeSemana(w), isoDom = fechaISO(dom);
-  if (!borradores.est) borradores.est = { cuenta: CUENTAS[0], balance: '', drawdown: '', diasRentables: '', proximoRetiro: '', progreso: '', notas: '' };
+  if (!borradores.est) borradores.est = { cuenta: nombresParaChips()[0], balance: '', drawdown: '', diasRentables: '', proximoRetiro: '', progreso: '', notas: '' };
   const cs = state.candidatas.filter((c) => c.fecha === isoDom);
   let h = `<div class="weekpick">
     <button class="btn sec" data-act="sem" data-d="-1" ${w <= 1 ? 'disabled' : ''} aria-label="Semana anterior">‹</button>
@@ -1253,7 +1499,7 @@ function viewCandidatas() {
 
   const e = borradores.est;
   h += `<div class="card"><details data-k="est" ${abiertosDet.est ? 'open' : ''}><summary>Estado semanal por cuenta</summary>
-    ${campo('Cuenta', `<select data-o="est" data-f="cuenta">${CUENTAS.map((c) => `<option value="${esc(c)}" ${e.cuenta === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>`)}
+    ${campo('Cuenta', `<select data-o="est" data-f="cuenta">${nombresParaChips().map((c) => `<option value="${esc(c)}" ${e.cuenta === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>`)}
     <div class="f2">${campo('Balance', inpNum('est', 'balance', e.balance, '52.300'))}
       ${campo('Drawdown usado (%)', inpNum('est', 'drawdown', e.drawdown, '1,2'))}</div>
     <div class="f2">${campo('Días rentables', inpNum('est', 'diasRentables', e.diasRentables, '3'))}
@@ -1339,9 +1585,13 @@ function viewAjustes() {
     ${campo('Checklist OK', seg('btCheck', b.checklist, [{ v: 'sí', n: 'Sí', cls: 'si' }, { v: 'no', n: 'No', cls: 'no' }]))}
     ${campo('Notas', inp('bt', 'notas', b.notas, ''))}
     <button class="btn block" data-act="addBt" style="margin-top:12px">Añadir caso</button></div>`;
-  h += `<div class="card"><h2>Cuentas de swing activas</h2>
-    <p class="small muted">Vienen marcadas por defecto en cada operación nueva de swing. La de scalping va sola en las de scalping.</p>
-    <div class="chips">${CUENTAS.filter((c) => c !== CUENTA_SCALPING).map((c) => `<button class="${a.cuentasSwing.includes(c) ? 'on' : ''}" data-act="ajCuenta" data-v="${esc(c)}">${esc(c)}</button>`).join('')}</div></div>`;
+  h += `<div class="card"><h2>Tema</h2>
+    <p class="small muted">Solo en este dispositivo. "Automático" sigue al sistema.</p>
+    ${seg('tema', state.tema, [{ v: 'claro', n: 'Claro' }, { v: 'oscuro', n: 'Oscuro' }, { v: 'auto', n: 'Automático' }])}</div>`;
+  h += `<div class="card"><h2>Cuentas</h2>
+    <p class="small muted">Las cuentas salen de la hoja Cuentas: las que están en curso, activas o aprobadas se marcan por defecto en cada operación, según su columna "Uso".</p>
+    <p class="small">${cuentasOperables().map((c) => `${esc(c.cuenta)} <span class="muted">(${fmtRiesgo(riesgoDefectoCuenta(c.cuenta))} %)</span>`).join(' · ') || 'Ninguna: trae la hoja.'}</p>
+    <button class="btn sec block" data-tab="cuentas">Ver y editar cuentas →</button></div>`;
   h += `<div class="card"><h2>Checklist de scalping</h2>
     <p class="small muted">Textos provisionales de las cinco casillas de las operaciones de scalping (columnas C1-C5). Se escribirán con la estrategia.</p>
     ${a.checklistScalping.map((t, i) => campo('Condición ' + (i + 1), `<input type="text" data-scalp="${i}" value="${esc(t)}" autocomplete="off">`)).join('')}</div>`;
@@ -1366,15 +1616,15 @@ function inpCuentaDom(c, f, v, ph) {
 function textoProg(p) { return p == null ? '' : `Con ese balance, el progreso es ${fmt(p, 1)} % (se usa si dejas el campo vacío).`; }
 function pasoHecho(id, iso, d, dd) {
   if (id === 'cuentas') { const a = cuentasEfectivas().filter(cuentaActiva); return a.length > 0 && a.every((c) => state.estadoSemanal.some((x) => x.fecha === iso && x.cuenta === c.cuenta)); }
-  if (id === 'revision') return !!dd.revision.trim();
-  if (id === 'mensual') return dd.mensual.errores.some((e) => e.trim()) && !!dd.mensual.decision;
-  if (id === 'calendario') return !!dd.calendario.trim();
+  if (id === 'revision') return !!notaDe(iso, 'revision').trim();
+  if (id === 'mensual') return erroresMes(iso).some((e) => e.trim()) && !!expansionDe(iso).decision;
+  if (id === 'calendario') return !!notaDe(iso, 'calendario').trim();
   if (id === 'candidatas') return state.candidatas.some((c) => c.fecha === iso);
   return !!regDe(iso).planificacion;
 }
 function pasoCuentas(d, iso, dd) {
   if (!state.cuentas.length) return `<p class="vacio">Todavía no se han traído las cuentas de la hoja.</p><button class="btn sec block" data-act="traerCuentas">Traer cuentas de la hoja</button>`;
-  const activas = cuentasEfectivas().filter(cuentaActiva);
+  const activas = cuentasOperables();
   if (!activas.length) return '<p class="vacio">Ninguna cuenta con estado «activa» o «en curso» en la hoja Cuentas.</p>';
   return `<p class="small muted" style="margin-top:0">Cuentas activas o en curso. Cada una se guarda como una fila de Estado semanal con fecha ${esc(iso)}.</p>` + activas.map((c) => {
     const g = state.estadoSemanal.find((x) => x.fecha === iso && x.cuenta === c.cuenta);
@@ -1406,37 +1656,44 @@ function pasoRevision(d, iso, dd) {
       ${statMini('R cerradas', m.cerradas ? fmtR(m.R) : '—', m.R > 0 ? 'good' : m.R < 0 ? 'bad' : '', `${m.cerradas} cierre${m.cerradas === 1 ? '' : 's'}`)}
       </div>`;
   }
-  return h + campo('Qué repetir / qué no', `<textarea data-o="dom" data-f="revision" placeholder="Qué ha funcionado y se repite; qué no se vuelve a hacer">${esc(dd.revision)}</textarea>`);
+  return h + campo('Qué repetir / qué no', `<textarea data-o="nota" data-tipo="revision" placeholder="Qué ha funcionado y se repite; qué no se vuelve a hacer">${esc(notaDe(iso, 'revision'))}</textarea>`)
+    + '<p class="small muted">Se guarda en la hoja Notas, así que se ve en cualquier dispositivo.</p>';
 }
 function pasoMensual(d, iso, dd) {
-  const ym = mesAnterior(d), m = metricasMes(ym), mm = dd.mensual, cond = mm.cond || {};
-  const antes = Object.keys(state.domingo).filter((k) => k < iso && esPrimerDomingo(parseISO(k)) && (state.domingo[k].mensual || {}).errores && state.domingo[k].mensual.errores.some((e) => e.trim())).sort().slice(-2);
+  const ym = mesAnterior(d), m = metricasMes(ym);
+  const errores = erroresMes(iso), exp = expansionDe(iso), cond = exp.cond;
+  const retMes = retirosDelMes(ym), netoMes = retMes.reduce((t, r) => t + (numDinero(r.neto) || 0), 0);
+  const retTotal = totalRetiradoCurso(), coste = costeChallenges();
+  const antes = state.notas.filter((n) => n.tipo === 'mensual' && n.fecha < iso && String(n.texto || '').trim()).map((n) => n.fecha).sort().slice(-2);
   const hace14 = fechaISO(sumarDias(d, -13));
   const frenosSem = Object.keys(state.registro).filter((k) => k >= hace14 && k <= iso && state.registro[k].freno === 'semanal').length;
   const challenges = cuentasEfectivas().filter((c) => String(c.fase).toLowerCase() === 'challenge' && cuentaActiva(c)).map((c) => c.cuenta);
   const pistas = { sinFreno: `Frenos semanales en los últimos 14 días: ${frenosSem}.`, unChallenge: `Challenges en curso según Cuentas: ${challenges.length ? challenges.join(', ') : 'ninguno'}.`,
-    aprobado: challenges.length ? `En curso: ${challenges.join(', ')}.` : '' };
+    aprobado: challenges.length ? `En curso: ${challenges.join(', ')}.` : '',
+    coste: coste ? `Retirado en el curso ${fmtDinero(retTotal)} frente a ${fmtDinero(coste)} de costes.` : 'Sin costes de challenge en la hoja.' };
   const todas = CONDICIONES_EXPANSION.every((c) => cond[c.id]);
   let h = `<p class="small muted" style="margin-top:0">${esc(nombreMes(ym))}, por fecha de cierre (y de apertura para el cumplimiento), como la hoja Resumen.</p>
     <div class="tablewrap"><table class="met"><tr><th></th><th>Cerradas</th><th>R</th><th>Aciertos</th></tr>
       ${['swing', 'scalping'].map((k) => `<tr><td class="b">${cap(k)}</td><td>${m[k].n}</td><td class="${m[k].R > 0 ? 'ok' : m[k].R < 0 ? 'ko' : ''}">${m[k].n ? fmtR(m[k].R) : '—'}</td><td>${pct(m[k].aciertos)}</td></tr>`).join('')}
     </table></div>
     <p class="small" style="margin:8px 0 0">Cumplimiento: <b class="${m.cumplimiento == null ? '' : m.cumplimiento >= 1 ? 'pos' : 'neg'}">${pct(m.cumplimiento)}</b> <span class="muted">(${m.dentro} de ${m.abiertas} operaciones abiertas en el mes)</span></p>
+    <p class="small" style="margin:8px 0 0">Retiros de ${esc(nombreMes(ym))}: <b class="${netoMes ? 'pos' : ''}">${netoMes ? fmtDinero(netoMes) : '—'}</b>
+      <span class="muted">· acumulado del curso ${fmtDinero(retTotal)} frente a ${coste ? fmtDinero(coste) : '—'} de costes</span></p>
     <h3>Tres errores más repetidos</h3>
-    ${mm.errores.map((e, i) => `<input type="text" data-o="mens" data-f="error" data-i="${i}" value="${esc(e)}" placeholder="Error ${i + 1}" style="margin-top:6px">`).join('')}
-    ${antes.length ? `<p class="small muted" style="margin-top:8px">Meses anteriores (tres meses seguidos = regla escrita):</p><ul class="plain small">${antes.map((k) => `<li><b>${esc(nombreMes(mesAnterior(parseISO(k))))}:</b> ${esc(state.domingo[k].mensual.errores.filter((e) => e.trim()).join(' · '))}</li>`).join('')}</ul>` : ''}
+    ${errores.map((e, i) => `<input type="text" data-o="nota" data-tipo="mensual" data-i="${i}" value="${esc(e)}" placeholder="Error ${i + 1}" style="margin-top:6px">`).join('')}
+    ${antes.length ? `<p class="small muted" style="margin-top:8px">Meses anteriores (tres meses seguidos = regla escrita):</p><ul class="plain small">${antes.map((k) => `<li><b>${esc(nombreMes(mesAnterior(parseISO(k))))}:</b> ${esc(erroresMes(k).filter((e) => e.trim()).join(' · '))}</li>`).join('')}</ul>` : ''}
     <h3>Expansión de cuentas · las cuatro a la vez</h3>
     ${CONDICIONES_EXPANSION.map((c) => `<button class="sw ${cond[c.id] ? 'on' : ''}" data-act="expCond" data-id="${c.id}" role="switch" aria-checked="${!!cond[c.id]}">
       <span class="tg"></span><span class="tx"><b>${esc(c.t)}</b>${pistas[c.id] ? `<span>${esc(pistas[c.id])}</span>` : ''}</span></button>`).join('')}
     <div class="aviso ${todas ? 'info' : ''}">${todas ? 'Se cumplen las cuatro condiciones.' : 'Falta alguna condición: se mueve la fecha a mano; nunca se fuerza.'}</div>
-    ${campo('Decisión', `<div class="chips">${DECISIONES_EXPANSION.map((x) => `<button class="${mm.decision === x ? 'on' : ''}" data-act="expDecision" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div>`)}
-    ${mm.decision === 'comprar' && !todas ? '<div class="aviso rojo">Comprar sin las cuatro condiciones va contra el plan.</div>' : ''}
-    ${campo('Coste en challenges frente a retiros · notas', `<input type="text" data-o="mens" data-f="notas" value="${esc(mm.notas)}" placeholder="Ej.: 3 challenges 1.200 $, retiros 1.850 $">`)}`;
+    ${campo('Decisión', `<div class="chips">${DECISIONES_EXPANSION.map((x) => `<button class="${exp.decision === x ? 'on' : ''}" data-act="expDecision" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div>`)}
+    ${exp.decision === 'comprar' && !todas ? '<div class="aviso rojo">Comprar sin las cuatro condiciones va contra el plan.</div>' : ''}
+    ${campo('Coste en challenges frente a retiros · notas', `<input type="text" data-o="nota" data-tipo="expansion" value="${esc(exp.notas)}" placeholder="Ej.: 3 challenges 1.200 $, retiros 1.850 $">`)}`;
   return h;
 }
 function pasoCalendario(d, iso, dd) {
   return `<p class="small muted" style="margin-top:0">Horas de alto impacto de la semana ${semanaPlan(d)}. Se ven en Hoy, en la revisión de 7:30, cada día; las líneas que empiezan por el día (lun, mar, mié, jue, vie) se destacan ese día.</p>
-    <textarea data-o="dom" data-f="calendario" placeholder="mar 14:30 IPC EE. UU.&#10;mié 20:00 FOMC&#10;vie 14:30 empleo EE. UU.">${esc(dd.calendario)}</textarea>
+    <textarea data-o="nota" data-tipo="calendario" placeholder="mar 14:30 IPC EE. UU.&#10;mié 20:00 FOMC&#10;vie 14:30 empleo EE. UU.">${esc(notaDe(iso, 'calendario'))}</textarea>
     <div class="aviso">${esc(AVISO_NOTICIAS)}</div>`;
 }
 function pasoCandidatas(d, iso, dd) {
@@ -1469,46 +1726,81 @@ function viewDomingo() {
 }
 
 // --- Pestaña Cuentas --------------------------------------------------------
+function tarjetaCuenta(c) {
+  const nombre = c.cuenta, u = ultimoEstado(nombre), lim = fechaDeHoja(c.fechaLimite), L = limitesCuenta(nombre);
+  const retirado = totalRetirado(nombre), coste = numDinero(c.costeChallenge);
+  const dias = lim ? Math.round((parseISO(lim) - hoy()) / 86400000) : null;
+  return `<div class="card">
+    <div class="row"><b style="font-size:17px">${esc(nombre)}</b><span>${c.fase ? `<span class="tag ${String(c.fase).toLowerCase() === 'challenge' ? 'warn' : ''}">${esc(c.fase)}</span>` : ''}${c.estado ? `<span class="tag plain">${esc(c.estado)}</span>` : ''}</span></div>
+    ${c.firma || c.producto ? `<div class="small muted">${esc([c.firma, c.producto].filter(Boolean).join(' · '))}</div>` : ''}
+    <div class="kv">
+      <div><span>Balance inicial</span>${fmtDinero(c.balance, nombre)}</div>
+      <div><span>Objetivo</span>${fmtDinero(c.objetivo, nombre)}</div>
+      <div><span>Pérdida diaria</span>${fmtDinero(c.perdidaDiaria, nombre)}${L.diaria != null ? ` <span class="muted small">(${fmt(L.diaria, 2)} %)</span>` : ''}</div>
+      <div><span>Pérdida máxima</span>${fmtDinero(c.perdidaMaxima, nombre)}${L.maxima != null ? ` <span class="muted small">(${fmt(L.maxima, 2)} %)</span>` : ''}</div>
+      <div><span>Riesgo por defecto</span>${fmtRiesgo(riesgoDefectoCuenta(nombre))} %${num(c.riesgoDefecto) === '' ? ' <span class="muted small">(sin fijar)</span>' : ''}</div>
+      <div><span>Coste del challenge</span>${coste === '' ? '—' : fmtDinero(coste, nombre)}</div>
+      <div><span>Fecha límite</span>${lim ? esc(lim) + `<div class="small ${dias != null && dias <= 7 ? 'neg' : 'muted'}">${textoPlazo(lim)}</div>` : '—'}</div>
+      <div><span>Total retirado</span>${retirado ? `<b class="pos">${fmtDinero(retirado, nombre)}</b>` : '—'}</div>
+    </div>
+    ${L.unaPosicion ? `<div class="aviso">${esc(AVISO_UNA_POSICION)}</div>` : ''}
+    <div class="sep"></div>
+    <div class="small"><b>Último estado semanal:</b> ${u ? `${esc(u.fecha)} · balance ${fmtDinero(u.balance, nombre)} · drawdown ${esc(u.drawdown)} % · ${esc(u.diasRentables)} días rentables · progreso ${esc(u.progreso)} %` : '<span class="muted">todavía ninguno.</span>'}</div>
+    ${c.notas ? `<div class="small muted" style="margin-top:6px">${esc(c.notas)}</div>` : ''}
+    <div class="small muted" style="margin-top:10px">Estado</div>
+    <div class="chips">${['en curso', 'activa', 'aprobada', 'perdida', 'cerrada'].map((e) => `<button class="${String(c.estado).toLowerCase() === e ? 'on' : ''}" data-act="ctaEstado" data-c="${esc(nombre)}" data-v="${e}">${e}</button>`).join('')}</div>
+    <div class="acc" style="margin-top:10px"><button class="btn sec" data-act="editarCuenta" data-c="${esc(nombre)}">Editar</button>
+      <button class="btn sec" data-act="nuevoRetiro" data-c="${esc(nombre)}">Registrar retiro</button></div>
+    ${state.retiros.filter((r) => r.cuenta === nombre).length ? `<details style="margin-top:8px"><summary class="small">Retiros de esta cuenta</summary>
+      <ul class="plain small">${state.retiros.filter((r) => r.cuenta === nombre).map((r) => `<li>${esc(r.fecha)} · ${fmtDinero(r.neto, nombre)} neto${numDinero(r.bruto) !== '' ? ` (bruto ${fmtDinero(r.bruto, nombre)}, ${esc(r.reparto)} %)` : ''}${r.metodo ? ' · ' + esc(r.metodo) : ''}</li>`).join('')}</ul></details>` : ''}
+  </div>`;
+}
 function viewCuentas() {
   const cs = cuentasEfectivas();
-  let h = volverMas();
-  if (!cs.length) return h + `<div class="card"><p class="vacio">Todavía no se han traído las cuentas de la hoja.</p><button class="btn sec block" data-act="traerCuentas">Traer cuentas de la hoja</button></div>`;
-  h += cs.map((c) => {
-    const nombre = String(c.cuenta).trim(), u = ultimoEstado(nombre), lim = fechaDeHoja(c.fechaLimite), edit = state.cuentasEdit[nombre];
-    return `<div class="card">
-      <div class="row"><b style="font-size:17px">${esc(nombre)}</b><span>${c.fase ? `<span class="tag ${String(c.fase).toLowerCase() === 'challenge' ? 'warn' : ''}">${esc(c.fase)}</span>` : ''}${c.estado ? `<span class="tag plain">${esc(c.estado)}</span>` : ''}${edit ? '<span class="tag bad">editado aquí</span>' : ''}</span></div>
-      ${c.firma || c.producto ? `<div class="small muted">${esc([c.firma, c.producto].filter(Boolean).join(' · '))}</div>` : ''}
-      <div class="kv">
-        <div><span>Balance inicial</span>${fmtDinero(c.balance, nombre)}</div>
-        <div><span>Objetivo</span>${fmtDinero(c.objetivo, nombre)}</div>
-        <div><span>Pérdida diaria</span>${fmtDinero(c.perdidaDiaria, nombre)}</div>
-        <div><span>Pérdida máxima</span>${fmtDinero(c.perdidaMaxima, nombre)}</div>
-        <div><span>Fecha límite</span>${lim ? esc(lim) + `<div class="small ${Math.round((parseISO(lim) - hoy()) / 86400000) <= 7 ? 'neg' : 'muted'}">${textoPlazo(lim)}</div>` : '—'}</div>
-        <div><span>Uso</span>${esc(c.uso || '—')}</div>
-      </div>
-      <div class="sep"></div>
-      <div class="small"><b>Último estado semanal:</b> ${u ? `${esc(u.fecha)} · balance ${fmtDinero(u.balance, nombre)} · drawdown ${esc(u.drawdown)} % · ${esc(u.diasRentables)} días rentables · progreso ${esc(u.progreso)} %${u.proximoRetiro ? ' · retiro ' + esc(u.proximoRetiro) : ''}` : '<span class="muted">todavía ninguno.</span>'}</div>
-      ${c.notas ? `<div class="small muted" style="margin-top:6px">${esc(c.notas)}</div>` : ''}
-      <button class="btn sec block" data-act="editarCuenta" data-c="${esc(nombre)}" style="margin-top:10px">Editar</button></div>`;
-  }).join('');
-  h += `<p class="small muted">Los datos vienen de la hoja Cuentas (Ajustes → Recuperar de la hoja). Lo que edites aquí se queda en este móvil y no cambia la hoja.</p>`;
+  let h = volverMas() + `<button class="btn block" data-act="nuevaCuenta">＋ Cuenta</button>`;
+  if (!cs.length) return h + `<div class="card" style="margin-top:12px"><p class="vacio">Todavía no se han traído las cuentas de la hoja.</p><button class="btn sec block" data-act="traerCuentas">Traer cuentas de la hoja</button></div>`;
+  const sinRiesgo = cs.filter((c) => num(c.riesgoDefecto) === '');
+  h += `<div style="margin-top:12px"></div>`;
+  if (sinRiesgo.length) h += `<div class="card"><p class="small" style="margin-top:0">${sinRiesgo.length} cuenta(s) sin "Riesgo por defecto %" en la hoja. Se usa 1 % (0,5 % en Orion) mientras tanto.</p>
+    <button class="btn sec block" data-act="rellenarRiesgos">Escribir los riesgos por defecto en la hoja</button></div>`;
+  h += cs.map(tarjetaCuenta).join('');
+  h += `<p class="small muted">Los datos son los de la hoja Cuentas. Lo que cambies aquí se escribe en la hoja (columnas A-N).</p>`;
   return h;
 }
 function viewPantallaCuenta(p) {
-  const k = p.k, hoja = state.cuentas.find((c) => String(c.cuenta).trim() === p.cuenta) || {};
-  let h = cabeceraP('Cuenta ' + p.cuenta);
+  const k = p.k, nueva = !cuentaDe(p.cuenta);
+  let h = cabeceraP(nueva ? 'Nueva cuenta' : 'Cuenta ' + p.cuenta);
   h += `<div class="card">
-    <div class="f2">${campo('Balance inicial', inpNum('pk', 'balance', k.balance, ''))}${campo('Objetivo', inpNum('pk', 'objetivo', k.objetivo, ''))}</div>
-    <div class="f2">${campo('Pérdida diaria', inpNum('pk', 'perdidaDiaria', k.perdidaDiaria, ''))}${campo('Pérdida máxima', inpNum('pk', 'perdidaMaxima', k.perdidaMaxima, ''))}</div>
+    ${nueva ? campo('Nombre', inp('pk', 'cuenta', k.cuenta, 'Orion-6')) : ''}
+    <div class="f2">${campo('Firma', inp('pk', 'firma', k.firma, 'Orion Funded'))}${campo('Producto', inp('pk', 'producto', k.producto, 'OrionLab 100K'))}</div>
+    <div class="f2">${campo('Balance inicial', inpNum('pk', 'balance', k.balance, '100.000'))}${campo('Objetivo', inpNum('pk', 'objetivo', k.objetivo, '5.000'))}</div>
+    <div class="f2">${campo('Pérdida diaria ($)', inpNum('pk', 'perdidaDiaria', k.perdidaDiaria, '1.000'))}${campo('Pérdida máxima ($)', inpNum('pk', 'perdidaMaxima', k.perdidaMaxima, '3.000'))}</div>
+    <div class="f2">${campo('Riesgo por defecto %', inpNum('pk', 'riesgoDefecto', k.riesgoDefecto, '0,5'))}${campo('Coste challenge ($)', inpNum('pk', 'costeChallenge', k.costeChallenge, '299'))}</div>
     ${campo('Fase', `<div class="chips">${FASES_CUENTA.map((f) => `<button class="${String(k.fase).toLowerCase() === f ? 'on' : ''}" data-act="pkSet" data-f="fase" data-v="${f}">${f}</button>`).join('')}</div>`)}
     ${campo('Estado', `<div class="chips">${ESTADOS_CUENTA.map((f) => `<button class="${String(k.estado).toLowerCase() === f ? 'on' : ''}" data-act="pkSet" data-f="estado" data-v="${f}">${f}</button>`).join('')}</div>`)}
     ${campo('Fecha límite', inpFecha('pk', 'fechaLimite', k.fechaLimite))}
     ${campo('Uso', seg('pkUso', k.uso, ['swing', 'scalping']))}
     ${campo('Notas', inp('pk', 'notas', k.notas, ''))}</div>
-    <p class="small muted">Se guarda solo en este móvil. La hoja Cuentas no cambia: para que sea definitivo, cámbialo también allí.</p>
-    ${state.cuentasEdit[p.cuenta] ? `<button class="btn ghost block" data-act="cuentaHoja">Descartar mis cambios y volver a los datos de la hoja</button>` : ''}
-    ${hoja.cuenta ? '' : '<div class="aviso rojo">Esta cuenta ya no está en la hoja.</div>'}`;
-  h += `<div class="barra"><button class="btn" data-act="cuentaGuardar">Guardar</button></div>`;
+    ${nueva ? '<p class="small muted">Se añade una fila nueva a la hoja Cuentas.</p>' : '<p class="small muted">Se actualiza su fila en la hoja Cuentas.</p>'}`;
+  h += `<div class="barra"><button class="btn" id="btnCuenta" data-act="cuentaGuardar" ${String(k.cuenta || '').trim() ? '' : 'disabled'}>Guardar en la hoja</button></div>`;
+  return h;
+}
+function netoRetiro(p) {
+  const b = numDinero(p.bruto), r = num(p.reparto);
+  return b === '' || r === '' ? '' : Math.round(b * r) / 100;
+}
+function viewPantallaRetiro(p) {
+  const c = cuentaDe(p.cuenta), calc = netoRetiro(p);
+  let h = cabeceraP('Retiro de ' + p.cuenta);
+  h += `<div class="card">
+    ${campo('Fecha', inpFecha('p', 'fecha', p.fecha))}
+    <div class="f2">${campo('Beneficio bruto ($)', inpNum('p', 'bruto', p.bruto, '1.200'))}${campo('Reparto %', inpNum('p', 'reparto', p.reparto, '80'))}</div>
+    ${campo('Neto cobrado ($)', inpNum('p', 'neto', p.neto, calc === '' ? '' : fmtRiesgo(calc)))}
+    <p class="small muted" id="netoCalc">${calc === '' ? 'Escribe el bruto y el reparto y se calcula el neto.' : `Calculado: ${fmtDinero(calc, p.cuenta)} (se usa si dejas el campo vacío).`}</p>
+    ${campo('Método', `<div class="chips">${METODOS_RETIRO.map((m) => `<button class="${p.metodo === m ? 'on' : ''}" data-act="retMetodo" data-v="${esc(m)}">${esc(m)}</button>`).join('')}</div>`)}
+    ${campo('Notas', inp('p', 'notas', p.notas, ''))}
+    ${c && numDinero(c.costeChallenge) !== '' ? `<div class="aviso info">Coste del challenge de ${esc(p.cuenta)}: ${fmtDinero(c.costeChallenge, p.cuenta)}. Retirado hasta ahora: ${fmtDinero(totalRetirado(p.cuenta), p.cuenta)}.</div>` : ''}</div>`;
+  h += `<div class="barra"><button class="btn" id="btnRet" data-act="retGuardar" ${/^\d{4}-\d{2}-\d{2}$/.test(p.fecha || '') && (numDinero(p.neto) !== '' || calc !== '') ? '' : 'disabled'}>Registrar retiro</button></div>`;
   return h;
 }
 
@@ -1539,7 +1831,21 @@ function viewMetricas() {
       <td>${m.scalping.n}</td><td class="${clsR(m.scalping.R, m.scalping.n)}">${m.scalping.n ? fmtR(m.scalping.R) : '—'}</td><td>${pct(m.scalping.aciertos)}</td>
       <td class="${clsCum(m.cumplimiento)}">${pct(m.cumplimiento)}</td></tr>`;
   });
-  h += `</table></div><p class="small muted" style="margin-top:8px">Operaciones, R y aciertos por mes de cierre; cumplimiento por mes de apertura. Calculado en este móvil con los días y las operaciones guardados.</p></div>`;
+  const ret = totalRetiradoCurso(), coste = costeChallenges();
+  h += `</table></div></div>`;
+  h += `<div class="card"><h3>Retiros y coste de los challenges</h3>
+    <div class="stats mini">
+      ${statMini('Retirado (neto)', ret ? fmtDinero(ret) : '—', ret ? 'good' : '', `${state.retiros.length} retiro(s) del curso`)}
+      ${statMini('Coste de challenges', coste ? fmtDinero(coste) : '—', '', 'suma de la columna N de Cuentas')}
+    </div>
+    <p class="small ${ret >= coste && coste ? 'pos' : 'neg'}" style="margin-top:8px">${coste ? (ret >= coste
+      ? `Los retiros cubren el coste (+${fmtDinero(ret - coste)}).`
+      : `Faltan ${fmtDinero(coste - ret)} para cubrir el coste: la condición de expansión "el coste sale de retiros ya cobrados" no se cumple.`)
+      : 'Sin costes de challenge apuntados en la hoja.'}</p>
+    ${state.retiros.length ? `<div class="tablewrap" style="margin-top:8px"><table class="met"><tr><th>Cuenta</th><th>Retirado</th><th>Coste</th></tr>
+      ${cuentasEfectivas().filter((c) => totalRetirado(c.cuenta) || numDinero(c.costeChallenge) !== '').map((c) => `<tr><td><b>${esc(c.cuenta)}</b></td><td class="${totalRetirado(c.cuenta) ? 'ok' : ''}">${totalRetirado(c.cuenta) ? fmtDinero(totalRetirado(c.cuenta), c.cuenta) : '—'}</td><td>${numDinero(c.costeChallenge) === '' ? '—' : fmtDinero(c.costeChallenge, c.cuenta)}</td></tr>`).join('')}
+    </table></div>` : ''}</div>`;
+  h += `<div class="card"><p class="small muted" style="margin:0">Operaciones, R y aciertos por mes de cierre; cumplimiento por mes de apertura. Calculado en este móvil con los días y las operaciones guardados.</p></div>`;
   return h;
 }
 
@@ -1634,15 +1940,16 @@ $('#view').addEventListener('click', (e) => {
     // Pantalla: operación
     case 'pCancelar': cerrarPantalla(); break;
     case 'pTipo':
-      p.o.tipo = v; p.o.cuentas = v === 'scalping' ? [CUENTA_SCALPING] : state.ajustes.cuentasSwing.slice();
+      p.o.tipo = v; p.o.cuentas = cuentasDeTipo(v);
       recalcularRiesgo(p); guardarPantalla(); render(); break;
     case 'pDir': p.o.direccion = v; guardarPantalla(); render(); break;
     case 'pCuenta': {
       const cs = p.o.cuentas || [];
-      p.o.cuentas = cs.includes(v) ? cs.filter((x) => x !== v) : CUENTAS.filter((c) => c === v || cs.includes(c));
+      p.o.cuentas = cs.includes(v) ? cs.filter((x) => x !== v) : nombresParaChips().filter((c) => c === v || cs.includes(c));
       recalcularRiesgo(p); guardarPantalla(); render(); break;
     }
     case 'pCheck': { const id = el.dataset.id; p.o[id] = !p.o[id]; guardarPantalla(); render(); break; }
+    case 'pRiesgo': p.o.riesgo = fmtRiesgo(Number(v)); p.riesgoAuto = false; guardarPantalla(); render(); break;
     case 'peReglas': p.o.dentroReglas = p.o.dentroReglas === v ? '' : v; guardarPantalla(); render(); break;
     case 'pGuardar': {
       const val = validarOp(p); if (!val.puede) { pintarPantalla(); break; }
@@ -1730,33 +2037,57 @@ $('#view').addEventListener('click', (e) => {
     case 'domNuevaCand':
       state.pantalla = { tipo: 'cand', c: { uid: uid(), fecha: fechaISO(domingoRef()), activo: '', direccion: 'largo', zona: '', stop: '', tp1: '', estado: 'pendiente', notas: '' }, activoOtro: false };
       guardarPantalla(); render(); break;
-    case 'expCond': { const mm = datosDomingo(fechaISO(domingoRef())).mensual; mm.cond = mm.cond || {}; mm.cond[el.dataset.id] = !mm.cond[el.dataset.id]; guardarDomingo(); render(); break; }
-    case 'expDecision': { const mm = datosDomingo(fechaISO(domingoRef())).mensual; mm.decision = mm.decision === v ? '' : v; guardarDomingo(); render(); break; }
+    case 'expCond': {
+      const iso = fechaISO(domingoRef()), e = expansionDe(iso);
+      e.cond[el.dataset.id] = !e.cond[el.dataset.id];
+      guardarNota(iso, 'expansion', textoExpansion(e)); render(); break;
+    }
+    case 'expDecision': {
+      const iso = fechaISO(domingoRef()), e = expansionDe(iso);
+      e.decision = e.decision === v ? '' : v;
+      guardarNota(iso, 'expansion', textoExpansion(e)); render(); break;
+    }
     // Cuentas
+    case 'nuevaCuenta': {
+      const k = {}; CAMPOS_CUENTA.forEach((f) => { k[f] = ''; });
+      Object.assign(k, { firma: 'Orion Funded', producto: '', fase: 'challenge', estado: 'en curso', uso: 'swing' });
+      state.pantalla = { tipo: 'cuenta', cuenta: '', k }; guardarPantalla(); render(); break;
+    }
     case 'editarCuenta': {
-      const c = cuentasEfectivas().find((x) => String(x.cuenta).trim() === el.dataset.c); if (!c) break;
+      const c = cuentaDe(el.dataset.c); if (!c) break;
       const k = {}; CAMPOS_CUENTA.forEach((f) => { k[f] = c[f] == null ? '' : String(c[f]); });
       k.fechaLimite = fechaDeHoja(c.fechaLimite);
-      state.pantalla = { tipo: 'cuenta', cuenta: el.dataset.c, k }; guardarPantalla(); render(); break;
+      if (num(k.riesgoDefecto) === '') k.riesgoDefecto = fmtRiesgo(riesgoDefectoCuenta(c.cuenta));
+      state.pantalla = { tipo: 'cuenta', cuenta: c.cuenta, k }; guardarPantalla(); render(); break;
     }
     case 'pkSet': p.k[el.dataset.f] = p.k[el.dataset.f] === v ? '' : v; guardarPantalla(); render(); break;
     case 'pkUso': p.k.uso = v; guardarPantalla(); render(); break;
     case 'cuentaGuardar': {
-      const hoja = state.cuentas.find((c) => String(c.cuenta).trim() === p.cuenta) || {}, dif = {};
-      CAMPOS_CUENTA.forEach((f) => {
-        const orig = f === 'fechaLimite' ? fechaDeHoja(hoja[f]) : String(hoja[f] == null ? '' : hoja[f]);
-        if (String(p.k[f] == null ? '' : p.k[f]).trim() !== orig.trim()) dif[f] = String(p.k[f]).trim();
-      });
-      if (Object.keys(dif).length) state.cuentasEdit[p.cuenta] = dif; else delete state.cuentasEdit[p.cuenta];
-      LS.set('cuentasEdit', state.cuentasEdit); cerrarPantalla(); break;
+      const c = {}; CAMPOS_CUENTA.forEach((f) => { c[f] = p.k[f] == null ? '' : String(p.k[f]).trim(); });
+      c.cuenta = String(p.k.cuenta || p.cuenta).trim();
+      if (!c.cuenta) break;
+      guardarCuentaHoja(c); state.tab = 'cuentas'; cerrarPantalla(); break;
     }
-    case 'cuentaHoja': delete state.cuentasEdit[p.cuenta]; LS.set('cuentasEdit', state.cuentasEdit); cerrarPantalla(); break;
+    case 'ctaEstado': { const c = cuentaDe(el.dataset.c); if (c) { guardarCuentaHoja({ cuenta: c.cuenta, estado: v }); render(); } break; }
+    case 'rellenarRiesgos': {
+      cuentasEfectivas().filter((c) => num(c.riesgoDefecto) === '')
+        .forEach((c) => guardarCuentaHoja({ cuenta: c.cuenta, riesgoDefecto: fmtRiesgo(riesgoDefectoCuenta(c.cuenta)) }));
+      render(); break;
+    }
+    // Retiros
+    case 'nuevoRetiro':
+      state.pantalla = { tipo: 'retiro', cuenta: el.dataset.c, fecha: fechaISO(hoy()), bruto: '', reparto: fmtRiesgo(REPARTO_DEFECTO),
+        neto: '', metodo: '', notas: '' };
+      guardarPantalla(); render(); break;
+    case 'retMetodo': p.metodo = p.metodo === v ? '' : v; guardarPantalla(); render(); break;
+    case 'retGuardar': {
+      const calc = netoRetiro(p), neto = numDinero(p.neto) !== '' ? p.neto : (calc === '' ? '' : fmtRiesgo(calc));
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(p.fecha || '') || neto === '') break;
+      guardarRetiro({ uid: uid(), fecha: p.fecha, cuenta: p.cuenta, bruto: p.bruto, reparto: p.reparto, neto: neto, metodo: p.metodo, notas: p.notas });
+      state.tab = 'cuentas'; cerrarPantalla(); break;
+    }
     // Ajustes y sincronización
-    case 'ajCuenta': {
-      const cs = state.ajustes.cuentasSwing;
-      state.ajustes.cuentasSwing = cs.includes(v) ? cs.filter((x) => x !== v) : CUENTAS.filter((c) => c === v || cs.includes(c));
-      LS.set('ajustes', state.ajustes); render(); break;
-    }
+    case 'tema': state.tema = v; LS.set('tema', state.tema); aplicarTema(); render(); break;
     case 'sync': if (!configurado()) { state.tab = 'ajustes'; render(); } else { if (!state.cola.length) sync.error = ''; sincronizar(); } break;
     case 'cfgProbar': probarConexion(); break;
     case 'recuperar': recuperarDeLaHoja(); break;
@@ -1769,6 +2100,14 @@ $('#view').addEventListener('click', (e) => {
 // Escribir en un campo no repinta la vista: solo actualiza el estado y las partes vivas.
 function alEscribir(t) {
   const o = t.dataset.o, f = t.dataset.f, p = state.pantalla;
+  // Los campos de la hoja Notas llevan data-tipo en vez de data-f.
+  if (o === 'nota') {
+    const iso = fechaISO(domingoRef()), tipo = t.dataset.tipo;
+    if (tipo === 'mensual') { const es = erroresMes(iso); es[+t.dataset.i] = t.value; ponerNotaLocal(iso, 'mensual', textoErrores(es)); }
+    else if (tipo === 'expansion') { const e = expansionDe(iso); e.notas = t.value; ponerNotaLocal(iso, 'expansion', textoExpansion(e)); }
+    else ponerNotaLocal(iso, tipo, t.value);
+    return true;
+  }
   if (o && f) {
     if (p && (o === 'po' || o === 'pc' || o === 'p' || o === 'pk')) {
       const obj = o === 'po' ? p.o : o === 'pc' ? p.c : o === 'pk' ? p.k : p;
@@ -1782,11 +2121,9 @@ function alEscribir(t) {
       }
       if (p.tipo === 'cierre' && f === 'resultadoR') p.rManual = t.value.trim() !== '';
       guardarPantalla(); pintarPantalla();
-    } else if (o === 'domc' || o === 'dom' || o === 'mens') {
+    } else if (o === 'domc') {
       const dd = datosDomingo(fechaISO(domingoRef()));
-      if (o === 'dom') dd[f] = t.value;
-      else if (o === 'mens') { if (f === 'error') dd.mensual.errores[+t.dataset.i] = t.value; else dd.mensual[f] = t.value; }
-      else {
+      {
         const c = t.dataset.c; dd.cuentas[c] = Object.assign({}, dd.cuentas[c], { [f]: t.value });
         if (f === 'balance') {
           const cu = cuentasEfectivas().find((x) => String(x.cuenta).trim() === c), el = document.querySelector(`[data-prog="${CSS.escape(c)}"]`);
@@ -1825,6 +2162,7 @@ $('#view').addEventListener('change', (e) => {
   if (t.id === 'cfgUrl' || t.id === 'cfgToken') { sync.error = ''; sync.msgAjustes = null; sincronizar(); return; }
   alEscribir(t);
   if (t.dataset.o === 'reg') encolarDia(fechaISO(fechaTab()), { [t.dataset.f]: t.value });
+  if (t.dataset.o === 'nota') { const iso = fechaISO(domingoRef()), tipo = t.dataset.tipo; guardarNota(iso, tipo, notaDe(iso, tipo)); }
   if (t.dataset.o === 'po' && t.dataset.f === 'fechaApertura') render();   // el aviso de viernes depende de la fecha
 });
 $('#view').addEventListener('toggle', (e) => { const d = e.target; if (d.dataset && d.dataset.k) abiertosDet[d.dataset.k] = d.open; }, true);
@@ -1832,11 +2170,19 @@ $('#view').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && e.target.matches('input[data-o="reg"]')) { e.preventDefault(); e.target.blur(); }
 });
 
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { if (!state.pantalla) render(); sincronizar(); } });
-window.addEventListener('online', () => sincronizar());
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  if (!state.pantalla) render();
+  sincronizar();
+  const m = haceMinutos(sync.ultimaHoja);
+  if (m == null || m >= SYNC_MINUTOS) traerDeLaHoja(true);
+});
+window.addEventListener('online', () => { sincronizar(); traerDeLaHoja(true); });
 
 render();
 sincronizar();
+traerDeLaHoja(true);                                   // al abrir
+setInterval(() => traerDeLaHoja(true), SYNC_MINUTOS * 60000);
 
 // --- PWA: service worker (solo bajo http/https, no con file://) -------------
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {

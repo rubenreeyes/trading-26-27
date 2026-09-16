@@ -1,6 +1,6 @@
 /* Service worker de Trading 26/27: cachea la app para que abra sin conexión.
    Sube la versión (CACHE) cada vez que cambies index.html para forzar la actualización. */
-const CACHE = 'trading-2627-v5';
+const CACHE = 'trading-2627-v6';
 const FILES = [
   './',
   './index.html',

@@ -76,6 +76,11 @@ actualizarla en Ajustes.
 curl -L "URL_EXEC?token=TU_TOKEN&que=cuentas"
 ```
 
+Consultas disponibles en `que=`: `dias` (con `desde`), `operaciones`,
+`candidatas` (con `semana` opcional), `cuentas`, `estado`, `notas` y `retiros`.
+Acciones del POST: `dia`, `operacion`, `candidata`, `estadoSemanal`,
+`backtest`, `nota`, `retiro` y `cuenta`.
+
 Debe devolver `{"ok":true,"que":"cuentas","filas":[…]}`. Un POST de prueba que
 marca la revisión de 7:30 del 14 de septiembre:
 
@@ -98,7 +103,18 @@ curl -L -H "Content-Type: text/plain" -d '{"token":"TU_TOKEN","accion":"dia","da
   **Estado** de una candidata ya enviada (pendiente → entrada). B y H de Candidatas
   y B de Estado semanal son fórmulas y no se tocan. En Backtest nunca se pasa de la
   fila 401, porque de la 404 en adelante hay resúmenes.
-- **Cuentas** es solo lectura. **Leyenda** y **Resumen** no se tocan nunca.
+- **Cuentas** se lee y se escribe: la app da de alta cuentas nuevas (acción
+  `cuenta`, una fila al final) y actualiza las existentes buscándolas por el
+  nombre de la columna A. Además usa dos columnas nuevas al final, **M "Riesgo
+  por defecto %"** y **N "Coste challenge ($)"**; si sus cabeceras están vacías,
+  el script las escribe solo al leer o guardar cuentas.
+- **Notas** y **Retiros** son las dos únicas hojas que el script crea, con sus
+  cabeceras, la primera vez que escribe en ellas. Notas guarda los textos del
+  domingo (A Fecha · B Tipo · C Semana, con fórmula · D Texto), una fila por
+  fecha y tipo, que se actualiza en vez de duplicarse. Retiros guarda los pagos
+  cobrados (A Fecha · B Cuenta · C Beneficio bruto · D Reparto % · E Neto
+  cobrado · F Método · G Notas).
+- **Leyenda** y **Resumen** no se tocan nunca.
 - Los cuatro campos de tipo casilla del día (`rev730`, `ny1530`, `formacion`,
   `planificacion`): `true` escribe "x", `false` vacía la celda, `null` o ausente no
   la toca. El resto de campos solo se escriben si vienen en el mensaje.

@@ -21,10 +21,16 @@ entrada con la checklist, avisos de posiciones y de riesgo abierto por cuenta) �
 semanal por cuenta) · **Domingo** (asistente de la rutina del domingo: estado
 de cuentas, revisión de la semana, revisión mensual el primer domingo,
 calendario económico, candidatas y planificación hecha) · **Más**, con
-**Cuentas** (límites, fecha límite y último estado semanal), **Métricas**
-(semanas y meses con los mismos cálculos que la hoja Resumen), **Plan** (fases
-de scalping y referencia) y **Ajustes** (conexión, backtest y copia de
-seguridad).
+**Cuentas** (alta y edición de cuentas sobre la hoja, límites, riesgo por
+defecto, coste del challenge, retiros y último estado semanal), **Métricas**
+(semanas y meses con los mismos cálculos que la hoja Resumen, más retiros
+frente a coste de challenges), **Plan** (fases de scalping y referencia) y
+**Ajustes** (conexión, tema claro/oscuro, backtest y copia de seguridad).
+
+Las cuentas salen de la hoja Cuentas, con su riesgo por defecto y sus límites;
+los retiros y los textos del domingo van a las hojas Retiros y Notas. Al abrir
+la app y cada diez minutos se trae la hoja y se fusiona con lo local: manda la
+hoja, salvo lo que siga pendiente de enviar.
 
 ## Puesta en marcha
 
