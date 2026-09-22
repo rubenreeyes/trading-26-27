@@ -181,6 +181,11 @@ body.enpantalla nav.tabbar,body.enpantalla header.top{display:none}
 .rbar.alto span{background:var(--danger)}
 .rcuenta{padding:8px 0;border-top:1px solid var(--line)} .rcuenta:first-of-type{border-top:0}
 textarea.corto{min-height:60px}
+.rfila{display:flex;gap:8px;align-items:flex-start;margin-top:8px;flex-wrap:wrap}
+.rfila .rn{min-width:70px;font-weight:700;font-size:14px;padding-top:9px}
+.rfila .chips{margin-top:0;flex:1;min-width:0}
+.rfila .chips button{padding:6px 10px;min-height:34px;font-size:13px}
+.grupos{margin-top:10px;font-size:14px}
 /* Domingo, Cuentas, Métricas y Más */
 .pasos{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .paso{background:var(--bg);border:1px solid var(--line);color:var(--muted);padding:6px 10px;min-height:34px;font-size:13px;font-weight:600;border-radius:999px}
@@ -570,8 +575,9 @@ async function llamarScript(metodo, cuerpo) {
 // Antes de enviar se completan las claves que la hoja ya conoce (id de operación, fila de candidata).
 function prepararEnvio(item) {
   if (item.accion === 'operacion' && item.ref) {
-    const op = state.operaciones.find((o) => o.uid === item.ref);
-    if (op && op.id != null) item.datos.id = op.id;
+    const { op, parte } = parteDeRef(item.ref);
+    const id = parte ? parte.id : (op ? op.id : null);
+    if (id != null) item.datos.id = id;
   }
   if (item.accion === 'candidata' && item.ref) {
     const c = state.candidatas.find((x) => x.uid === item.ref);
@@ -596,8 +602,10 @@ async function sincronizar() {
         throw e;
       }
       if (item.accion === 'operacion' && item.ref && j.id != null) {
-        const op = state.operaciones.find((o) => o.uid === item.ref);
-        if (op && op.id == null) { op.id = j.id; LS.set('operaciones', state.operaciones); nuevosIds = true; }
+        const { op, parte } = parteDeRef(item.ref);
+        if (parte && parte.id == null) { parte.id = j.id; nuevosIds = true; }
+        if (op && op.id == null) { op.id = (op.partes && op.partes[0] && op.partes[0].id != null) ? op.partes[0].id : j.id; nuevosIds = true; }
+        if (op) LS.set('operaciones', state.operaciones);
       }
       if (item.accion === 'candidata' && item.ref && j.fila != null) {
         const c = state.candidatas.find((x) => x.uid === item.ref);
@@ -649,10 +657,51 @@ function rDeSalida(o, salida) {
   if (e === '' || s === '' || x === '' || e === s) return null;
   return (x - e) / (e - s);
 }
-function payloadOp(o) {
+// --- Riesgo por cuenta y filas por grupo -----------------------------------
+// Una operación puede llevarse en varias cuentas con riesgos distintos. En la
+// hoja eso son varias filas (una por riesgo) enlazadas por "grupo:<id>" al
+// principio de Gestión; en la app siguen siendo una sola operación.
+function riesgoDe(o, cuenta) {
+  const r = num((o.riesgos || {})[cuenta]);
+  if (r !== '' && r > 0) return r;
+  const g = num(o.riesgo);
+  return g !== '' && g > 0 ? g : riesgoDefectoCuenta(cuenta);
+}
+function gruposRiesgo(o) {
+  const mapa = new Map();
+  (o.cuentas || []).forEach((c) => { const r = riesgoDe(o, c); if (!mapa.has(r)) mapa.set(r, []); mapa.get(r).push(c); });
+  return Array.from(mapa.entries()).sort((a, b) => b[0] - a[0]).map(([riesgo, cuentas]) => ({ riesgo, cuentas }));
+}
+function claveParte(r) { return 'r' + String(r).replace('.', '_'); }
+// Cada "parte" es una fila de la hoja: su riesgo, sus cuentas y su id.
+function asegurarPartes(o) {
+  if (Array.isArray(o.partes) && o.partes.length) return o.partes;
+  const gs = gruposRiesgo(o);
+  if (gs.length > 1 && !o.grupo) o.grupo = 'g' + uid();
+  o.partes = gs.map((g) => ({ clave: claveParte(g.riesgo), riesgo: g.riesgo, cuentas: g.cuentas.slice(),
+    id: gs.length === 1 && o.id != null ? o.id : null }));
+  return o.partes;
+}
+function textoGestion(o) {
+  const g = String(o.gestion || '').trim();
+  return o.grupo ? 'grupo:' + o.grupo + (g ? '\n' + g : '') : g;
+}
+function grupoDeGestion(g) { const m = String(g || '').match(/^grupo:(\S+)/); return m ? m[1] : null; }
+function gestionSinGrupo(g) { return String(g || '').replace(/^grupo:\S*[ \t]*\r?\n?/, ''); }
+// Rellena el riesgo de cada cuenta marcada con el suyo por defecto y quita las que ya no están.
+function sincronizarRiesgos(o) {
+  o.riesgos = o.riesgos || {};
+  (o.cuentas || []).forEach((c) => { if (!(num(o.riesgos[c]) > 0)) o.riesgos[c] = fmtRiesgo(riesgoDefectoCuenta(c)); });
+  Object.keys(o.riesgos).forEach((c) => { if (!(o.cuentas || []).includes(c)) delete o.riesgos[c]; });
+  const rs = (o.cuentas || []).map((c) => riesgoDe(o, c));
+  o.riesgo = rs.length ? fmtRiesgo(Math.min.apply(null, rs)) : '';
+}
+function payloadOp(o, parte) {
+  const cuentas = parte ? parte.cuentas : (o.cuentas || []);
   return { fechaApertura: o.fechaApertura || '', tipo: o.tipo || '', activo: o.activo || '', direccion: o.direccion || '',
-    cuentas: (o.cuentas || []).join(', '), entrada: num(o.entrada), stop: num(o.stop), tp1: num(o.tp1), riesgo: num(o.riesgo),
-    c1: !!o.c1, c2: !!o.c2, c3: !!o.c3, c4: !!o.c4, c5: !!o.c5, gestion: o.gestion || '',
+    cuentas: cuentas.join(', '), entrada: num(o.entrada), stop: num(o.stop), tp1: num(o.tp1),
+    riesgo: parte ? parte.riesgo : num(o.riesgo),
+    c1: !!o.c1, c2: !!o.c2, c3: !!o.c3, c4: !!o.c4, c5: !!o.c5, gestion: textoGestion(o),
     fechaCierre: o.fechaCierre || '', resultadoR: num(o.resultadoR), dentroReglas: o.dentroReglas || '',
     motivo: o.motivo || '', aprendizaje: o.aprendizaje || '' };
 }
@@ -661,10 +710,20 @@ function payloadOp(o) {
 function guardarOperacion(o, campos) {
   const i = state.operaciones.findIndex((x) => x.uid === o.uid);
   if (i >= 0) state.operaciones[i] = o; else state.operaciones.unshift(o);
+  const partes = asegurarPartes(o);
   LS.set('operaciones', state.operaciones);
-  const p = payloadOp(o), datos = {};
-  (campos || Object.keys(p)).forEach((k) => { datos[k] = p[k]; });
-  encolar('op:' + o.uid, 'operacion', datos, o.uid);
+  partes.forEach((parte) => {                       // una fila de la hoja por grupo de riesgo
+    const p = payloadOp(o, parte), datos = {};
+    (campos || Object.keys(p)).forEach((k) => { datos[k] = p[k]; });
+    encolar('op:' + o.uid + ':' + parte.clave, 'operacion', datos, o.uid + ':' + parte.clave);
+  });
+}
+// ref de la cola: "uid:clave" → la operación y su parte.
+function parteDeRef(ref) {
+  const i = String(ref).lastIndexOf(':');
+  if (i < 0) return { op: state.operaciones.find((o) => o.uid === ref), parte: null };
+  const op = state.operaciones.find((o) => o.uid === String(ref).slice(0, i));
+  return { op, parte: op ? (op.partes || []).find((x) => x.clave === String(ref).slice(i + 1)) : null };
 }
 function ratioCand(c) {
   const z = num(c.zona), s = num(c.stop), t = num(c.tp1);
@@ -680,6 +739,21 @@ function guardarCandidata(c) {
   if (i >= 0) state.candidatas[i] = c; else state.candidatas.push(c);
   LS.set('candidatas', state.candidatas);
   encolar('cand:' + c.uid, 'candidata', payloadCand(c), c.uid);
+}
+// Marcar una candidata como "siguiente semana" crea ya su copia en el domingo
+// siguiente, sin esperar a la pregunta del domingo y sin duplicarla.
+function domingoSiguiente(fecha) { return fechaISO(sumarDias(parseISO(fecha), 7)); }
+function existeCandidata(activo, direccion, fecha) {
+  const a = String(activo || '').trim().toUpperCase(), d = String(direccion || '').trim();
+  return state.candidatas.some((x) => x.fecha === fecha && String(x.activo || '').trim().toUpperCase() === a && String(x.direccion || '').trim() === d);
+}
+function copiarASiguienteSemana(c) {
+  const fecha = domingoSiguiente(c.fecha);
+  if (existeCandidata(c.activo, c.direccion, fecha)) { c.pasada = true; guardarCandidata(c); return false; }
+  c.pasada = true; guardarCandidata(c);
+  guardarCandidata({ uid: uid(), fecha, activo: c.activo, direccion: c.direccion, zona: c.zona, stop: c.stop,
+    tp1: c.tp1, estado: 'pendiente', notas: c.notas || '' });
+  return true;
 }
 function guardarEstadoSemanal(x) {
   state.estadoSemanal.unshift(x); LS.set('estadoSemanal', state.estadoSemanal);
@@ -772,7 +846,7 @@ function posicionesCuenta(c, excluirUid) {
 // Suma del riesgo % de las abiertas que no están en break even.
 function riesgoCuenta(c, excluirUid) {
   return abiertas().filter((o) => o.uid !== excluirUid && !o.be && (o.cuentas || []).includes(c))
-    .reduce((t, o) => t + (num(o.riesgo) || 0), 0);
+    .reduce((t, o) => t + (riesgoDe(o, c) || 0), 0);
 }
 function cuentasConAbiertas() {
   const vistas = [];
@@ -795,8 +869,6 @@ function riesgoPropuesto(o) {
   if (!cs.length) return o.tipo === 'scalping' ? RIESGO.scalping : RIESGO_DEFECTO_GENERAL;
   return Math.min.apply(null, cs.map(riesgoDefectoCuenta));
 }
-function riesgosPorCuenta(o) { return (o.cuentas || []).map((c) => ({ cuenta: c, riesgo: riesgoDefectoCuenta(c) })); }
-function riesgosDistintos(o) { const v = riesgosPorCuenta(o).map((x) => x.riesgo); return v.length > 1 && v.some((x) => x !== v[0]); }
 
 // Estado de validación del formulario de operación: bloqueos y avisos.
 function validarOp(p) {
@@ -806,7 +878,7 @@ function validarOp(p) {
   else if (!/^\d{4}-\d{2}-\d{2}$/.test(o.fechaApertura || '')) r.duro = 'Falta la fecha.';
   else if (!(o.cuentas || []).length) r.duro = 'Elige al menos una cuenta.';
   else if (num(o.entrada) === '' || num(o.stop) === '') r.duro = 'Faltan la entrada y el stop.';
-  else if (!(num(o.riesgo) > 0)) r.duro = 'Falta el riesgo %.';
+  else if ((o.cuentas || []).some((c) => !(riesgoDe(o, c) > 0))) r.duro = 'Falta el riesgo % de alguna cuenta.';
   if (nueva && o.tipo !== 'scalping') {
     const llenas = (o.cuentas || []).filter((c) => posicionesCuenta(c, o.uid) >= RIESGO.maxPosiciones);
     if (llenas.length) r.duro = `Máximo tres posiciones: ${llenas.join(', ')} ya tiene${llenas.length > 1 ? 'n' : ''} tres abiertas.`;
@@ -845,7 +917,7 @@ function validarOp(p) {
   }
   // Riesgo abierto resultante en cada cuenta, con el límite de la propia cuenta
   (o.cuentas || []).forEach((c) => {
-    const L = limitesCuenta(c), tot = riesgoCuenta(c, o.uid) + (o.be ? 0 : (num(o.riesgo) || 0));
+    const L = limitesCuenta(c), tot = riesgoCuenta(c, o.uid) + (o.be ? 0 : (riesgoDe(o, c) || 0));
     if (tot > L.aviso + 1e-9) {
       r.avisos.push({ cls: 'rojo', t: `${c}: el riesgo abierto quedaría en ${fmt(tot, 2)} % (aviso a ${fmt(L.aviso, 2)} %` +
         (L.diaria != null ? `, pérdida diaria ${fmt(L.diaria, 2)} %` : '') + ').' });
@@ -1004,6 +1076,35 @@ function opDeHoja(f) {
     motivo: String(f.motivo || ''), aprendizaje: String(f.aprendizaje || ''),
     be: /break ?even|\bBE\b/i.test(String(f.gestion || '')) };
 }
+// Las filas de un mismo grupo vuelven a ser una sola operación.
+function opDeGrupo(filas, gid) {
+  const base = opDeHoja(filas[0]);
+  base.uid = 'hoja-grupo-' + gid; base.grupo = gid;
+  base.gestion = gestionSinGrupo(filas[0].gestion);
+  base.cuentas = []; base.riesgos = {}; base.partes = [];
+  filas.forEach((f) => {
+    const cs = String(f.cuentas || '').split(',').map((x) => x.trim()).filter(Boolean), r = num(f.riesgo);
+    cs.forEach((c) => { if (!base.cuentas.includes(c)) base.cuentas.push(c); base.riesgos[c] = fmtRiesgo(r === '' ? 0 : r); });
+    base.partes.push({ clave: claveParte(r), riesgo: r, cuentas: cs, id: f.id });
+  });
+  const rs = base.cuentas.map((c) => riesgoDe(base, c));
+  base.riesgo = rs.length ? fmtRiesgo(Math.min.apply(null, rs)) : base.riesgo;
+  base.be = filas.some((f) => /break ?even|\bBE\b/i.test(String(f.gestion || '')));
+  return base;
+}
+function opsDeHoja(filas) {
+  const grupos = new Map(), sueltas = [];
+  filas.forEach((f) => {
+    const gid = grupoDeGestion(f.gestion);
+    if (!gid) { sueltas.push(f); return; }
+    if (!grupos.has(gid)) grupos.set(gid, []);
+    grupos.get(gid).push(f);
+  });
+  const ops = sueltas.map((f) => { const o = opDeHoja(f); o.partes = [{ clave: claveParte(num(f.riesgo)), riesgo: num(f.riesgo), cuentas: o.cuentas.slice(), id: f.id }]; return o; });
+  grupos.forEach((fs, gid) => ops.push(opDeGrupo(fs, gid)));
+  return ops.sort((a, b) => (a.id || 0) - (b.id || 0));
+}
+
 /**
  * Trae la hoja entera y la fusiona con el estado local: manda la hoja, salvo lo
  * que siga pendiente de enviar en la cola. Se llama al abrir la app y cada
@@ -1030,9 +1131,10 @@ async function traerDeLaHoja(silencioso) {
     });
     LS.set('registro', state.registro);
 
-    const opsPend = state.operaciones.filter((o) => pendiente('op:' + o.uid));
-    const idsPend = opsPend.map((o) => o.id).filter((x) => x != null);
-    state.operaciones = opsPend.concat((ops.filas || []).filter((f) => !idsPend.includes(f.id)).map(opDeHoja).reverse());
+    const opsPend = state.operaciones.filter((o) => state.cola.some((c) => c.k.indexOf('op:' + o.uid + ':') === 0 || c.k === 'op:' + o.uid));
+    const idsPend = [];
+    opsPend.forEach((o) => { (o.partes || []).forEach((x) => { if (x.id != null) idsPend.push(x.id); }); if (o.id != null) idsPend.push(o.id); });
+    state.operaciones = opsPend.concat(opsDeHoja((ops.filas || []).filter((f) => !idsPend.includes(f.id))).reverse());
     LS.set('operaciones', state.operaciones);
 
     const candPend = state.candidatas.filter((c) => pendiente('cand:' + c.uid));
@@ -1245,7 +1347,17 @@ function viewHoy() {
 }
 
 // --- Pestaña Operaciones ----------------------------------------------------
-function tagEnvio(o) { return o.id != null ? `<span class="tag plain">#${o.id}</span>` : '<span class="tag warn">sin enviar</span>'; }
+function tagEnvio(o) {
+  const ids = (o.partes || []).map((x) => x.id).filter((x) => x != null);
+  if (!ids.length && o.id != null) ids.push(o.id);
+  const faltan = !(o.partes || []).length || (o.partes || []).some((x) => x.id == null);
+  return (ids.length ? `<span class="tag plain">${ids.map((i) => '#' + i).join(' ')}</span>` : '') +
+    (faltan ? '<span class="tag warn">sin enviar</span>' : '');
+}
+// "50K-A, 200K 1 % · Orion-1 0,5 %"
+function cuentasConRiesgo(o) {
+  return gruposRiesgo(o).map((g) => `${g.cuentas.join(', ')} ${fmtRiesgo(g.riesgo)} %`).join(' · ');
+}
 function textoDias(n) { return n === 0 ? 'abierta hoy' : n === 1 ? '1 día abierta' : n + ' días abierta'; }
 function riesgoHTML() {
   const rs = resumenRiesgo();
@@ -1268,7 +1380,7 @@ function tarjetaAbierta(o) {
   return `<div class="opcard">
     <div class="t"><button class="linkbtn" data-act="editarOp" data-uid="${o.uid}">${esc(o.activo)} · ${esc(o.direccion)}</button>
       <span class="small ${r == null ? 'muted' : r >= RATIO_MINIMO ? 'pos' : 'neg'}">${r == null ? '' : '1:' + fmt(r, 2)}</span></div>
-    <div class="s">${textoDias(diasAbierta(o))} · ${esc((o.cuentas || []).join(', '))} · ${fmt(num(o.riesgo) || 0, 2)} %
+    <div class="s">${textoDias(diasAbierta(o))} · ${esc(cuentasConRiesgo(o))}${(o.partes || []).length > 1 ? ' <span class="tag">' + o.partes.length + ' filas</span>' : ''}
       ${o.tipo === 'scalping' ? '<span class="tag">scalping</span>' : ''}${o.be ? '<span class="tag ok">BE</span>' : ''}${o.dentroReglas === 'no' ? '<span class="tag bad">fuera de reglas</span>' : ''} ${tagEnvio(o)}</div>
     ${ult ? `<div class="s">Última gestión: ${esc(ult)}</div>` : ''}
     <div class="acc"><button class="btn sec" data-act="gestionar" data-uid="${o.uid}">Gestionar</button>
@@ -1306,13 +1418,13 @@ function abrirNuevaOp(base, candUid) {
     cuentas: cuentasDeTipo('swing'), entrada: '', stop: '', tp1: '', riesgo: '',
     c1: false, c2: false, c3: false, c4: false, c5: false, gestion: '', fechaCierre: '', resultadoR: '',
     dentroReglas: '', motivo: '', aprendizaje: '', be: false }, base || {});
-  o.riesgo = fmtRiesgo(riesgoPropuesto(o));
+  sincronizarRiesgos(o);
   state.pantalla = { tipo: 'op', o, candUid: candUid || null, riesgoAuto: true, forzar: false, motivoForzado: '',
     activoOtro: !!(o.activo && !ACTIVOS.includes(o.activo)) };
   guardarPantalla(); render();
 }
 function fmtRiesgo(n) { return String(n).replace('.', ','); }
-function recalcularRiesgo(p) { if (p.riesgoAuto) p.o.riesgo = fmtRiesgo(riesgoPropuesto(p.o)); }
+function recalcularRiesgo(p) { sincronizarRiesgos(p.o); }
 function opDe(uidOp) { return state.operaciones.find((x) => x.uid === uidOp); }
 function cabeceraP(titulo) {
   return `<div class="phead"><button class="btn ghost" data-act="pCancelar">Cancelar</button><h2>${esc(titulo)}</h2><span style="min-width:72px"></span></div>`;
@@ -1324,14 +1436,21 @@ function selectorActivo(dataO, valor, otro) {
       <option value="otro" ${sel === 'otro' ? 'selected' : ''}>Otro…</option></select>
     ${sel === 'otro' ? `<input type="text" data-o="${dataO}" data-f="activo" value="${esc(valor)}" placeholder="Símbolo, p. ej. AAPL" autocapitalize="characters" autocomplete="off" style="margin-top:8px">` : ''}`;
 }
-// Riesgo por defecto de cada cuenta marcada (columna M de la hoja).
-function riesgosHTML(o) {
-  const rs = riesgosPorCuenta(o);
-  if (!rs.length) return 'Marca al menos una cuenta.';
-  const lista = rs.map((x) => `${esc(x.cuenta)} ${fmtRiesgo(x.riesgo)} %`).join(' · ');
-  return riesgosDistintos(o)
-    ? `Riesgo por cuenta: ${lista}. <b>En la hoja se guarda un solo riesgo por operación</b>: si necesitas porcentajes distintos, haz una operación por grupo de cuentas.`
-    : `Riesgo por defecto de estas cuentas: ${lista}.`;
+// Riesgo de cada cuenta marcada: empieza en el suyo por defecto (columna M) y se cambia aquí.
+function editorRiesgos(o, editable) {
+  if (!(o.cuentas || []).length) return '<p class="small muted">Marca al menos una cuenta.</p>';
+  if (!editable) return `<p class="small">${(o.cuentas || []).map((c) => `${esc(c)} <b>${fmtRiesgo(riesgoDe(o, c))} %</b>`).join(' · ')}</p>
+    <p class="small muted">El reparto por riesgos se fija al crear la operación: para cambiarlo, crea otra.</p>`;
+  return (o.cuentas || []).map((c) => `<div class="rfila"><span class="rn">${esc(c)}</span>
+    <div class="chips">${RIESGOS_RAPIDOS.map((x) => `<button class="${riesgoDe(o, c) === x ? 'on' : ''}" data-act="pRiesgoC" data-c="${esc(c)}" data-v="${x}">${fmtRiesgo(x)} %</button>`).join('')}</div></div>`).join('');
+}
+function resumenGrupos(o) {
+  const gs = gruposRiesgo(o);
+  if (!gs.length) return '';
+  if (gs.length === 1) return `Una fila en la hoja: ${fmtRiesgo(gs[0].riesgo)} % en ${esc(gs[0].cuentas.join(', '))}.`;
+  return `Se guardarán <b>${gs.length} filas enlazadas</b> en Operaciones: ` +
+    gs.map((g) => `${fmtRiesgo(g.riesgo)} % (${esc(g.cuentas.join(', '))})`).join(' y ') +
+    '. En la app se ven como una sola operación, y Gestionar y Cerrar las actualizan todas.';
 }
 function avisosOpHTML(v) {
   return (v.duro ? `<div class="aviso rojo">${esc(v.duro)}</div>` : '') + v.avisos.map((a) => `<div class="aviso ${a.cls}">${esc(a.t)}</div>`).join('');
@@ -1346,10 +1465,9 @@ function viewPantallaOp(p) {
     ${campo('Activo', selectorActivo('po', o.activo, p.activoOtro))}
     ${campo('Dirección', seg('pDir', o.direccion, ['largo', 'corto']))}
     ${campo('Cuentas', `<div class="chips">${nombresParaChips().map((c) => `<button class="${(o.cuentas || []).includes(c) ? 'on' : ''}" data-act="pCuenta" data-v="${esc(c)}">${esc(c)}</button>`).join('')}</div>`)}
-    <div class="f2">${campo('Fecha', inpFecha('po', 'fechaApertura', o.fechaApertura))}
-      ${campo('Riesgo %', inpNum('po', 'riesgo', o.riesgo, '1'))}</div>
-    <div class="chips">${RIESGOS_RAPIDOS.map((x) => `<button class="${num(o.riesgo) === x ? 'on' : ''}" data-act="pRiesgo" data-v="${x}">${fmtRiesgo(x)} %</button>`).join('')}</div>
-    <p class="small muted" style="margin-top:8px">${riesgosHTML(o)}</p>
+    ${campo('Fecha', inpFecha('po', 'fechaApertura', o.fechaApertura))}
+    ${campo('Riesgo por cuenta', editorRiesgos(o, nueva))}
+    <p class="small muted grupos">${resumenGrupos(o)}</p>
     <div class="f3">${campo('Entrada', inpNum('po', 'entrada', o.entrada, '0'))}
       ${campo('Stop', inpNum('po', 'stop', o.stop, '0'))}
       ${campo('TP1', inpNum('po', 'tp1', o.tp1, '0'))}</div>
@@ -1879,14 +1997,16 @@ function cerrarPantalla() { state.pantalla = null; guardarPantalla(); render(); 
 // El domingo, al marcar la planificación: candidatas de la semana pasada sin entrada.
 function candidatasSinEntrada(iso) {
   const antes = fechaISO(sumarDias(parseISO(iso), -7));
-  return state.candidatas.filter((c) => c.fecha === antes && !c.pasada && (c.estado === 'pendiente' || c.estado === 'siguiente semana' || !c.estado));
+  return state.candidatas.filter((c) => c.fecha === antes && !c.pasada
+    && (c.estado === 'pendiente' || c.estado === 'siguiente semana' || !c.estado)
+    && !existeCandidata(c.activo, c.direccion, iso));   // las ya copiadas no se repiten
 }
 function pasarCandidatas() {
   const q = state.pasar; if (!q) return;
   q.uids.forEach((u) => {
     const c = state.candidatas.find((x) => x.uid === u); if (!c) return;
-    c.estado = 'siguiente semana'; c.pasada = true; guardarCandidata(c);
-    guardarCandidata({ uid: uid(), fecha: q.fecha, activo: c.activo, direccion: c.direccion, zona: c.zona, stop: c.stop, tp1: c.tp1, estado: 'pendiente', notas: c.notas || '' });
+    c.estado = 'siguiente semana';
+    copiarASiguienteSemana(c);          // no duplica si ya se copió al marcarla
   });
   state.pasar = null;
 }
@@ -1940,16 +2060,19 @@ $('#view').addEventListener('click', (e) => {
     // Pantalla: operación
     case 'pCancelar': cerrarPantalla(); break;
     case 'pTipo':
-      p.o.tipo = v; p.o.cuentas = cuentasDeTipo(v);
-      recalcularRiesgo(p); guardarPantalla(); render(); break;
+      p.o.tipo = v; p.o.cuentas = cuentasDeTipo(v); p.o.riesgos = {};
+      sincronizarRiesgos(p.o); guardarPantalla(); render(); break;
     case 'pDir': p.o.direccion = v; guardarPantalla(); render(); break;
     case 'pCuenta': {
       const cs = p.o.cuentas || [];
       p.o.cuentas = cs.includes(v) ? cs.filter((x) => x !== v) : nombresParaChips().filter((c) => c === v || cs.includes(c));
-      recalcularRiesgo(p); guardarPantalla(); render(); break;
+      sincronizarRiesgos(p.o); guardarPantalla(); render(); break;
     }
     case 'pCheck': { const id = el.dataset.id; p.o[id] = !p.o[id]; guardarPantalla(); render(); break; }
-    case 'pRiesgo': p.o.riesgo = fmtRiesgo(Number(v)); p.riesgoAuto = false; guardarPantalla(); render(); break;
+    case 'pRiesgoC': {
+      p.o.riesgos = p.o.riesgos || {}; p.o.riesgos[el.dataset.c] = fmtRiesgo(Number(v));
+      sincronizarRiesgos(p.o); guardarPantalla(); render(); break;
+    }
     case 'peReglas': p.o.dentroReglas = p.o.dentroReglas === v ? '' : v; guardarPantalla(); render(); break;
     case 'pGuardar': {
       const val = validarOp(p); if (!val.puede) { pintarPantalla(); break; }
@@ -1992,7 +2115,12 @@ $('#view').addEventListener('click', (e) => {
       const c = state.candidatas.find((x) => x.uid === el.dataset.uid); if (!c) break;
       state.pantalla = { tipo: 'cand', c: JSON.parse(JSON.stringify(c)), activoOtro: !ACTIVOS.includes(c.activo) }; guardarPantalla(); render(); break;
     }
-    case 'candEstado': { const c = state.candidatas.find((x) => x.uid === el.dataset.uid); if (c) { c.estado = v; guardarCandidata(c); render(); } break; }
+    case 'candEstado': {
+      const c = state.candidatas.find((x) => x.uid === el.dataset.uid); if (!c) break;
+      c.estado = v;
+      if (v === 'siguiente semana') copiarASiguienteSemana(c); else guardarCandidata(c);
+      render(); break;
+    }
     case 'convertir': {
       const c = state.candidatas.find((x) => x.uid === el.dataset.uid); if (!c) break;
       abrirNuevaOp({ activo: c.activo, direccion: c.direccion || 'largo', entrada: c.zona, stop: c.stop, tp1: c.tp1 }, c.uid); break;
@@ -2001,7 +2129,9 @@ $('#view').addEventListener('click', (e) => {
     case 'pcEstado': p.c.estado = v; guardarPantalla(); render(); break;
     case 'pcGuardar': {
       if (!String(p.c.activo || '').trim()) break;
-      p.c.activo = String(p.c.activo).trim().toUpperCase(); guardarCandidata(p.c); cerrarPantalla(); break;
+      p.c.activo = String(p.c.activo).trim().toUpperCase();
+      if (p.c.estado === 'siguiente semana' && !p.c.pasada) copiarASiguienteSemana(p.c); else guardarCandidata(p.c);
+      cerrarPantalla(); break;
     }
     case 'addEst': {
       guardarEstadoSemanal(Object.assign({ uid: uid(), fecha: fechaISO(domingoDeSemana(semanaSel())) }, borradores.est));
@@ -2112,7 +2242,6 @@ function alEscribir(t) {
     if (p && (o === 'po' || o === 'pc' || o === 'p' || o === 'pk')) {
       const obj = o === 'po' ? p.o : o === 'pc' ? p.c : o === 'pk' ? p.k : p;
       obj[f] = t.value;
-      if (o === 'po' && f === 'riesgo') p.riesgoAuto = false;
       if (o === 'po' && (f === 'fechaApertura')) recalcularRiesgo(p);
       if (p.tipo === 'cierre' && f === 'salida' && !p.rManual) {
         const op = opDe(p.uid), rs = op ? rDeSalida(op, p.salida) : null;

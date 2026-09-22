@@ -141,10 +141,10 @@ var HOJAS = {
 // Columnas de fecha que se escriben como fecha real (Date) con formato yyyy-mm-dd.
 // La clave 'fecha' es la columna A de Candidatas, Estado semanal y Backtest
 // (en Dias también se llama así, pero Dias!A nunca se escribe), más la fecha
-// límite de Cuentas.
-var COLS_FECHA_REAL = ['fecha', 'fechaApertura', 'fechaCierre', 'fechaLimite'];
-// Columnas de fecha que se siguen escribiendo como texto AAAA-MM-DD.
-var COLS_FECHA_TEXTO = ['proximoRetiro'];
+// límite de Cuentas y el próximo retiro de Estado semanal.
+var COLS_FECHA_REAL = ['fecha', 'fechaApertura', 'fechaCierre', 'fechaLimite', 'proximoRetiro'];
+// Ninguna columna de fecha se escribe ya como texto; al leer, todas se normalizan.
+var COLS_FECHA_TEXTO = [];
 // Al leer, todas se normalizan a texto AAAA-MM-DD.
 var COLS_FECHA = COLS_FECHA_REAL.concat(COLS_FECHA_TEXTO);
 var FORMATO_FECHA = 'yyyy-mm-dd';
